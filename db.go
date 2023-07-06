@@ -3,6 +3,8 @@ package bitcask_go
 import (
 	"bitcask-go/data"
 	"bitcask-go/index"
+	"errors"
+	"os"
 	"sync"
 )
 
@@ -13,6 +15,31 @@ type DB struct {
 	activeFile *data.File            // 活跃数据文件, 可以用于写入
 	olderFiles map[uint32]*data.File // 旧数据文件, 只能用于读取
 	index      index.Indexer         // 内存索引
+}
+
+// Open 打开 bitcask 数据库存储引擎
+func Open(options Options) (*DB, error) {
+	if err := checkOptions(&options); err != nil {
+		return nil, err
+	}
+
+	// 判断数据目录是否存在，如果不存在的话就创建这个目录
+	if _, err := os.Stat(options.DirPath); os.IsNotExist(err) {
+		if err = os.MkdirAll(options.DirPath, os.ModePerm); err != nil {
+			return nil, err
+		}
+	}
+
+	db := DB{
+		options:    options,
+		mu:         &sync.RWMutex{},
+		olderFiles: make(map[uint32]*data.File),
+		index:      index.NewIndexer(options.IndexType),
+	}
+
+	// 加载数据文件
+
+	return &db, nil
 }
 
 // Put 写入 key-value 数据，key 不能为空
@@ -136,4 +163,18 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 		return nil, ErrFileNotFound
 	}
 	return record.Value, nil
+}
+
+func (db *DB) loadDataFiles() error {
+	panic("implement me")
+}
+
+func checkOptions(options *Options) error {
+	if options.DirPath == "" {
+		return errors.New("database dir path is empty")
+	}
+	if options.MaxFileSize <= 0 {
+		return errors.New("database data file must be greater than 0")
+	}
+	return nil
 }
