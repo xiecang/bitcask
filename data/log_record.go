@@ -1,11 +1,17 @@
 package data
 
+import "encoding/binary"
+
 type LogRecordType = byte
 
 const (
 	LogRecordNormal LogRecordType = iota
 	LogRecordDelete
 )
+
+// crc type keysSize valueSize key value
+// 4   1    5(max)   5(max)    n    m
+const maxLogRecordHeaderSize = binary.MaxVarintLen32*2 + 1 + 4
 
 // LogRecord 写入到数据文件的记录
 // 之所以叫日志，是因为数据是追加写入的，类似日志的格式
