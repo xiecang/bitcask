@@ -4,7 +4,11 @@ import (
 	"bitcask-go/data"
 	"bitcask-go/index"
 	"errors"
+	"io"
 	"os"
+	"sort"
+	"strconv"
+	"strings"
 	"sync"
 )
 
@@ -38,6 +42,18 @@ func Open(options Options) (*DB, error) {
 	}
 
 	// 加载数据文件
+	var (
+		err     error
+		fileIds []int
+	)
+	if fileIds, err = db.loadDataFiles(); err != nil {
+		return nil, err
+	}
+
+	// 从数据文件中加载索引
+	if err := db.loadIndexFromDataFiles(fileIds); err != nil {
+		return nil, err
+	}
 
 	return &db, nil
 }
@@ -154,7 +170,7 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	}
 
 	// 根据偏移量读取数据
-	record, err := file.ReadLogRecord(pos.Offset)
+	record, _, err := file.ReadLogRecord(pos.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -165,8 +181,95 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	return record.Value, nil
 }
 
-func (db *DB) loadDataFiles() error {
-	panic("implement me")
+func (db *DB) loadDataFiles() ([]int, error) {
+	dirEntries, err := os.ReadDir(db.options.DirPath)
+	if err != nil {
+		return nil, err
+	}
+	var fileIds []int
+	// 遍历数据目录下的文件，找到所有以 .data 结尾的数据文件
+	for _, entry := range dirEntries {
+		if !strings.HasSuffix(entry.Name(), data.FileNameSuffix) {
+			continue
+		}
+		// 00000001.data
+		splitNames := strings.Split(entry.Name(), ".")
+		fileId, err := strconv.Atoi(splitNames[0])
+		if err != nil {
+			// 数据目录有可能被损坏了
+			return nil, ErrDataDirectoryCorrupted
+		}
+		fileIds = append(fileIds, fileId)
+	}
+
+	// 对文件 Id 进行排序，从小到大依次加载
+	sort.Ints(fileIds)
+
+	// 遍历文件 Id，加载数据文件
+	for i, fileId := range fileIds {
+		file, err := data.OpenFile(db.options.DirPath, uint32(fileId))
+		if err != nil {
+			return nil, err
+		}
+		if i == len(fileIds)-1 {
+			// 最后一个文件作为活跃文件
+			db.activeFile = file
+		} else {
+			// 其他文件作为旧文件
+			db.olderFiles[file.Id] = file
+		}
+	}
+	return fileIds, nil
+}
+
+// loadIndexFromDataFiles 从数据文件中加载索引
+// 遍历文件中的所有记录，并更新到内存索引中
+func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
+	if len(fileIds) == 0 {
+		return nil
+	}
+
+	// 遍历所有的数据文件
+	for _, fid := range fileIds {
+		var fileId = uint32(fid)
+		var file *data.File
+		if fileId == db.activeFile.Id {
+			file = db.activeFile
+		} else {
+			file = db.olderFiles[fileId]
+		}
+
+		var offset int64 = 0
+		for {
+			record, size, err := file.ReadLogRecord(offset)
+			if err != nil {
+				if errors.Is(err, io.EOF) {
+					break
+				}
+				return err
+			}
+
+			// 构造内存索引信息
+			pos := &data.LogRecordPos{
+				Fid:    file.Id,
+				Offset: offset,
+			}
+			if record.Type == data.LogRecordDelete {
+				db.index.Delete(record.Key)
+			} else {
+				db.index.Put(record.Key, pos)
+			}
+
+			//
+			offset += size
+		}
+
+		// 如果是当前活跃文件，更新这个文件的 writeOffset
+		if fileId == db.activeFile.Id {
+			db.activeFile.WriteOffset = offset
+		}
+	}
+	return nil
 }
 
 func checkOptions(options *Options) error {

@@ -2,6 +2,8 @@ package data
 
 import "bitcask-go/fio"
 
+const FileNameSuffix = ".data"
+
 // File 数据文件
 type File struct {
 	// Id 文件 id
@@ -24,6 +26,6 @@ func (f *File) Sync() error {
 	panic("implement me")
 }
 
-func (f *File) ReadLogRecord(offset int64) (*LogRecord, error) {
+func (f *File) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 	panic("implement me")
 }
