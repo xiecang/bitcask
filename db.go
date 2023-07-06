@@ -80,6 +80,72 @@ func (db *DB) Put(key []byte, value []byte) error {
 	return nil
 }
 
+// Get 根据 key 读取数据
+func (db *DB) Get(key []byte) ([]byte, error) {
+	db.mu.Lock()
+	defer db.mu.Unlock()
+	if len(key) == 0 {
+		return nil, ErrKeyIsEmpty
+	}
+
+	// 从内存数据结构中取出 key 对应的索引信息
+	pos := db.index.Get(key)
+	if pos == nil {
+		return nil, ErrKeyNotFound
+	}
+
+	// 根据文件 Id 找到对应的数据文件
+	var file *data.File
+	if db.activeFile.Id == pos.Fid {
+		file = db.activeFile
+	} else {
+		file = db.olderFiles[pos.Fid]
+	}
+	if file == nil {
+		return nil, ErrFileNotFound
+	}
+
+	// 根据偏移量读取数据
+	record, _, err := file.ReadLogRecord(pos.Offset)
+	if err != nil {
+		return nil, err
+	}
+
+	if record.Type == data.LogRecordDelete {
+		return nil, ErrFileNotFound
+	}
+	return record.Value, nil
+}
+
+// Delete 根据 key 删除对应的数据
+func (db *DB) Delete(key []byte) error {
+	if len(key) == 0 {
+		return ErrKeyIsEmpty
+	}
+
+	// 先检查 key 是否存在，如果不存在的话就直接返回
+	if pos := db.index.Get(key); pos == nil {
+		return nil
+	}
+
+	// 构造删除数据的记录
+	record := data.LogRecord{
+		Key:  key,
+		Type: data.LogRecordDelete,
+	}
+	// 写入到数据文件中
+	_, err := db.appendLogRecord(&record)
+	if err != nil {
+		return err
+	}
+	// 从内存索引中将对应的 key 删除
+	ok := db.index.Delete(key)
+	if !ok {
+		return ErrIndexUpdateFailed
+	}
+	return nil
+}
+
 // appendLogRecord 追加写数据到活跃数据文件中
 func (db *DB) appendLogRecord(record *data.LogRecord) (*data.LogRecordPos, error) {
 	db.mu.Lock()
@@ -144,43 +210,6 @@ func (db *DB) setActivateDataFile() error {
 	db.activeFile = file
 	return nil
 }
-
-func (db *DB) Get(key []byte) ([]byte, error) {
-	db.mu.Lock()
-	defer db.mu.Unlock()
-	if len(key) == 0 {
-		return nil, ErrKeyIsEmpty
-	}
-
-	// 从内存数据结构中取出 key 对应的索引信息
-	pos := db.index.Get(key)
-	if pos == nil {
-		return nil, ErrKeyNotFound
-	}
-
-	// 根据文件 Id 找到对应的数据文件
-	var file *data.File
-	if db.activeFile.Id == pos.Fid {
-		file = db.activeFile
-	} else {
-		file = db.olderFiles[pos.Fid]
-	}
-	if file == nil {
-		return nil, ErrFileNotFound
-	}
-
-	// 根据偏移量读取数据
-	record, _, err := file.ReadLogRecord(pos.Offset)
-	if err != nil {
-		return nil, err
-	}
-
-	if record.Type == data.LogRecordDelete {
-		return nil, ErrFileNotFound
-	}
-	return record.Value, nil
-}
-
 func (db *DB) loadDataFiles() ([]int, error) {
 	dirEntries, err := os.ReadDir(db.options.DirPath)
 	if err != nil {
