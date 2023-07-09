@@ -11,21 +11,36 @@ import (
 )
 
 func cleanTmpDataFile(path string) error {
-	err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
-
-		// 判断是否是 .a 后缀的文件
-		if !info.IsDir() && filepath.Ext(path) == FileNameSuffix {
-			if err = os.Remove(path); err != nil {
+	//err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
+	//	if err != nil {
+	//		return err
+	//	}
+	//
+	//	// 判断是否是 .a 后缀的文件
+	//	if !info.IsDir() && filepath.Ext(path) == FileNameSuffix {
+	//      path := filepath.Join(root, file.Name())
+	//		if err = os.Remove(path); err != nil {
+	//			return err
+	//		}
+	//		fmt.Printf("Deleted file: %s\n", path)
+	//	}
+	//
+	//	return nil
+	//})
+	files, err := os.ReadDir(path)
+	if err != nil {
+		fmt.Printf("Error reading directory %q: %v\n", path, err)
+		return err
+	}
+	for _, file := range files {
+		if !file.IsDir() && filepath.Ext(file.Name()) == FileNameSuffix {
+			p := filepath.Join(path, file.Name())
+			if err = os.Remove(p); err != nil {
 				return err
 			}
-			fmt.Printf("Deleted file: %s\n", path)
+			fmt.Printf("Deleted file: %s\n", p)
 		}
-
-		return nil
-	})
+	}
 	return err
 }
 func TestFile_Close(t *testing.T) {
@@ -63,9 +78,9 @@ func TestFile_Close(t *testing.T) {
 
 func TestFile_ReadLogRecord(t *testing.T) {
 	type fields struct {
-		Id          uint32
-		WriteOffset int64
-		IOManager   fio.IOManager
+		dirPath    string
+		id         uint32
+		preRecords []*LogRecord
 	}
 	type args struct {
 		offset int64
@@ -78,15 +93,97 @@ func TestFile_ReadLogRecord(t *testing.T) {
 		want1   int64
 		wantErr bool
 	}{
-		// TODO: Add test cases.
+		{
+			name: "test read log record",
+			fields: fields{
+				id:      1,
+				dirPath: os.TempDir(),
+			},
+			args: args{
+				offset: 0,
+			},
+			want: &LogRecord{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+			},
+			want1:   15,
+			wantErr: false,
+		},
+		{
+			name: "record key empty",
+			fields: fields{
+				id:      1,
+				dirPath: os.TempDir(),
+			},
+			args: args{
+				offset: 0,
+			},
+			want: &LogRecord{
+				Key:   []byte(""),
+				Value: []byte("value"),
+			},
+			want1:   12,
+			wantErr: false,
+		},
+		{
+			name: "read with offset",
+			fields: fields{
+				id:      1,
+				dirPath: os.TempDir(),
+				preRecords: []*LogRecord{
+					{
+						Key:   []byte("key"),
+						Value: []byte("value"),
+					},
+				},
+			},
+			args: args{
+				offset: 15,
+			},
+			want: &LogRecord{
+				Key:   []byte("key"),
+				Value: []byte("value"),
+			},
+			want1:   15,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f := &File{
-				Id:          tt.fields.Id,
-				WriteOffset: tt.fields.WriteOffset,
-				IOManager:   tt.fields.IOManager,
+			defer func() {
+				err := cleanTmpDataFile(tt.fields.dirPath)
+				if err != nil {
+					t.Errorf("cleanTmpDataFile() error = %v", err)
+				}
+			}()
+			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
+				return
 			}
+
+			// write pre-records
+			for _, record := range tt.fields.preRecords {
+				recordBytes, _ := EncodeLogRecord(record)
+				err = f.Write(recordBytes)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Write() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+			}
+
+			recordBytes, length := EncodeLogRecord(tt.want)
+			err = f.Write(recordBytes)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Write() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			err = f.Sync()
+			if (err != nil) != tt.wantErr {
+				t.Errorf("Sync() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+
 			got, got1, err := f.ReadLogRecord(tt.args.offset)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ReadLogRecord() error = %v, wantErr %v", err, tt.wantErr)
@@ -97,6 +194,9 @@ func TestFile_ReadLogRecord(t *testing.T) {
 			}
 			if got1 != tt.want1 {
 				t.Errorf("ReadLogRecord() got1 = %v, want %v", got1, tt.want1)
+			}
+			if got1 != length {
+				t.Errorf("ReadLogRecord() got1 = %v, length %v", got1, length)
 			}
 		})
 	}
@@ -275,6 +375,80 @@ func TestOpenFile(t *testing.T) {
 			//	t.Errorf("OpenFile() got = %v, want %v", got, tt.want)
 			//}
 			t.Logf("got: %v", got)
+		})
+	}
+}
+
+func Test_filePath(t *testing.T) {
+	type args struct {
+		dirPath string
+		fileId  uint32
+	}
+	var dir = os.TempDir()
+	tests := []struct {
+		name string
+		args args
+		want string
+	}{
+		{
+			name: "test file path",
+			args: args{
+				dirPath: dir,
+				fileId:  1,
+			},
+			want: filepath.Join(dir, "0000000001.data"),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := filePath(tt.args.dirPath, tt.args.fileId); got != tt.want {
+				t.Errorf("filePath() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_logRecordHeader_empty(t *testing.T) {
+	type fields struct {
+		crc        uint32
+		recordType LogRecordType
+		keySize    uint32
+		valueSize  uint32
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   bool
+	}{
+		{
+			name: "test empty",
+			fields: fields{
+				crc:        0,
+				recordType: LogRecordNormal,
+				keySize:    0,
+			},
+			want: true,
+		},
+		{
+			name: "test not empty",
+			fields: fields{
+				crc:        1,
+				recordType: LogRecordDelete,
+				keySize:    1,
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			l := &logRecordHeader{
+				crc:        tt.fields.crc,
+				recordType: tt.fields.recordType,
+				keySize:    tt.fields.keySize,
+				valueSize:  tt.fields.valueSize,
+			}
+			if got := l.empty(); got != tt.want {
+				t.Errorf("empty() = %v, want %v", got, tt.want)
+			}
 		})
 	}
 }
