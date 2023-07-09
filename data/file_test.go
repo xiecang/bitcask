@@ -147,6 +147,23 @@ func TestFile_ReadLogRecord(t *testing.T) {
 			want1:   15,
 			wantErr: false,
 		},
+		{
+			name: "被删除的数据在数据文件的末尾",
+			fields: fields{
+				id:      1,
+				dirPath: os.TempDir(),
+			},
+			args: args{
+				offset: 0,
+			},
+			want: &LogRecord{
+				Key:   []byte("key"),
+				Value: []byte(""),
+				Type:  LogRecordDelete,
+			},
+			want1:   10,
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
