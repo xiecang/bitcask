@@ -87,13 +87,17 @@ func (db *DB) Get(key []byte) ([]byte, error) {
 	if len(key) == 0 {
 		return nil, ErrKeyIsEmpty
 	}
-
 	// 从内存数据结构中取出 key 对应的索引信息
 	pos := db.index.Get(key)
 	if pos == nil {
 		return nil, ErrKeyNotFound
 	}
 
+	return db.getValueByPosition(pos)
+}
+
+// getValueByPosition 根据索引信息读取 value
+func (db *DB) getValueByPosition(pos *data.LogRecordPos) ([]byte, error) {
 	// 根据文件 Id 找到对应的数据文件
 	var file *data.File
 	if db.activeFile.Id == pos.Fid {

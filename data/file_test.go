@@ -2,47 +2,14 @@ package data
 
 import (
 	"bitcask-go/fio"
+	"bitcask-go/utils"
 	"bytes"
-	"fmt"
 	"os"
 	"path/filepath"
 	"reflect"
 	"testing"
 )
 
-func cleanTmpDataFile(path string) error {
-	//err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
-	//	if err != nil {
-	//		return err
-	//	}
-	//
-	//	// 判断是否是 .a 后缀的文件
-	//	if !info.IsDir() && filepath.Ext(path) == FileNameSuffix {
-	//      path := filepath.Join(root, file.Name())
-	//		if err = os.Remove(path); err != nil {
-	//			return err
-	//		}
-	//		fmt.Printf("Deleted file: %s\n", path)
-	//	}
-	//
-	//	return nil
-	//})
-	files, err := os.ReadDir(path)
-	if err != nil {
-		fmt.Printf("Error reading directory %q: %v\n", path, err)
-		return err
-	}
-	for _, file := range files {
-		if !file.IsDir() && filepath.Ext(file.Name()) == FileNameSuffix {
-			p := filepath.Join(path, file.Name())
-			if err = os.Remove(p); err != nil {
-				return err
-			}
-			fmt.Printf("Deleted file: %s\n", p)
-		}
-	}
-	return err
-}
 func TestFile_Close(t *testing.T) {
 	type fields struct {
 		dirPath string
@@ -168,9 +135,9 @@ func TestFile_ReadLogRecord(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
-				err := cleanTmpDataFile(tt.fields.dirPath)
+				err := utils.CleanDBFile(tt.fields.dirPath)
 				if err != nil {
-					t.Errorf("cleanTmpDataFile() error = %v", err)
+					t.Errorf("CleanDBFile() error = %v", err)
 				}
 			}()
 			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
@@ -330,7 +297,7 @@ func TestFile_readNBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = cleanTmpDataFile(tt.fields.dirPath)
+			_ = utils.CleanDBFile(tt.fields.dirPath)
 			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)

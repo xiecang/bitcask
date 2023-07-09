@@ -9,6 +9,11 @@ type Options struct {
 	IndexType IndexType // 索引类型
 }
 
+type IteratorOption struct {
+	Prefix  []byte // 遍历前缀为指定 key 的值，默认为空，即遍历所有 key
+	Reverse bool   // 是否反向迭代
+}
+
 type IndexType = int8
 
 const (
