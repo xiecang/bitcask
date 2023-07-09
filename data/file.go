@@ -36,11 +36,16 @@ func (l *logRecordHeader) empty() bool {
 	return l.crc == 0 && l.keysSize == 0 && l.valueSize == 0
 }
 
+func filePath(dirPath string, fileId uint32) string {
+	name := fmt.Sprintf("%010d%s", fileId, FileNameSuffix)
+	p := filepath.Join(dirPath, name)
+	return p
+}
+
 // OpenFile 打开数据文件
 func OpenFile(dirPath string, fileId uint32) (*File, error) {
-	name := fmt.Sprintf("%s/%010d%s", dirPath, fileId, FileNameSuffix)
-	filePath := filepath.Join(dirPath, name)
-	ioManager, err := fio.NewIOManager(filePath)
+	p := filePath(dirPath, fileId)
+	ioManager, err := fio.NewIOManager(p)
 	if err != nil {
 		return nil, err
 	}
