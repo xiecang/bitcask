@@ -28,12 +28,12 @@ type File struct {
 type logRecordHeader struct {
 	crc        uint32        // crc 校验值
 	recordType LogRecordType // 标识 LogRecord 的类型
-	keysSize   uint32        // key 的长度
+	keySize    uint32        // key 的长度
 	valueSize  uint32        // value 的长度
 }
 
 func (l *logRecordHeader) empty() bool {
-	return l.crc == 0 && l.keysSize == 0 && l.valueSize == 0
+	return l.crc == 0 && l.keySize == 0 && l.valueSize == 0
 }
 
 func filePath(dirPath string, fileId uint32) string {
@@ -82,7 +82,7 @@ func (f *File) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 	}
 
 	// 读取 LogRecord 的 key 和 value 的长度
-	keySize, valueSize := int64(header.keysSize), int64(header.valueSize)
+	keySize, valueSize := int64(header.keySize), int64(header.valueSize)
 	var totalSize = headerSize + keySize + valueSize
 
 	var logRecord = &LogRecord{
@@ -128,13 +128,4 @@ func (f *File) readNBytes(n int64, offset int64) ([]byte, error) {
 	b := make([]byte, n)
 	_, err := f.IOManager.Read(b, offset)
 	return b, err
-}
-
-// 对字节数组中的 Header 信息进行解码
-func decodeLogRecordHeader(buf []byte) (*logRecordHeader, int64) {
-	panic("implement me")
-}
-
-func getLogRecordCRC(record *LogRecord, header []byte) uint32 {
-	panic("implement me")
 }

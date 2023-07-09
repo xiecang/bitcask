@@ -198,7 +198,6 @@ func TestFile_readNBytes(t *testing.T) {
 		args    args
 		wantErr bool
 	}{
-		// TODO: Add test cases.
 		{
 			name: "test read n bytes",
 			fields: fields{
@@ -276,81 +275,6 @@ func TestOpenFile(t *testing.T) {
 			//	t.Errorf("OpenFile() got = %v, want %v", got, tt.want)
 			//}
 			t.Logf("got: %v", got)
-		})
-	}
-}
-
-func Test_decodeLogRecordHeader(t *testing.T) {
-	type args struct {
-		buf []byte
-	}
-	tests := []struct {
-		name  string
-		args  args
-		want  *logRecordHeader
-		want1 int64
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got, got1 := decodeLogRecordHeader(tt.args.buf)
-			if !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("decodeLogRecordHeader() got = %v, want %v", got, tt.want)
-			}
-			if got1 != tt.want1 {
-				t.Errorf("decodeLogRecordHeader() got1 = %v, want %v", got1, tt.want1)
-			}
-		})
-	}
-}
-
-func Test_getLogRecordCRC(t *testing.T) {
-	type args struct {
-		record *LogRecord
-		header []byte
-	}
-	tests := []struct {
-		name string
-		args args
-		want uint32
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := getLogRecordCRC(tt.args.record, tt.args.header); got != tt.want {
-				t.Errorf("getLogRecordCRC() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_logRecordHeader_empty(t *testing.T) {
-	type fields struct {
-		crc        uint32
-		recordType LogRecordType
-		keysSize   uint32
-		valueSize  uint32
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		want   bool
-	}{
-		// TODO: Add test cases.
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			l := &logRecordHeader{
-				crc:        tt.fields.crc,
-				recordType: tt.fields.recordType,
-				keysSize:   tt.fields.keysSize,
-				valueSize:  tt.fields.valueSize,
-			}
-			if got := l.empty(); got != tt.want {
-				t.Errorf("empty() = %v, want %v", got, tt.want)
-			}
 		})
 	}
 }

@@ -159,7 +159,7 @@ func (db *DB) appendLogRecord(record *data.LogRecord) (*data.LogRecordPos, error
 	}
 
 	// 写入数据编码
-	encodedRecord, size := data.EncodingRecord(record)
+	encodedRecord, size := data.EncodeLogRecord(record)
 	// 如果写入的数据已经达到了活跃文件的阈值，则关闭活跃文件，并打开新的文件
 	if db.activeFile.WriteOffset+size > db.options.MaxFileSize {
 		// 先持久化数据文件，保证已有数据持久化到磁盘当中
