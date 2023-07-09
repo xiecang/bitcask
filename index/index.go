@@ -14,6 +14,8 @@ type Indexer interface {
 	Get(Key []byte) *data.LogRecordPos
 	// Delete 从索引中删除 key 对应的数据位置信息
 	Delete(key []byte) bool
+	// Size 返回索引中元素的数量
+	Size() int
 	// Iterator 返回一个迭代器，用于遍历索引中的所有元素
 	Iterator(reverse bool) Iterator
 }

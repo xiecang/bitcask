@@ -231,6 +231,54 @@ func TestBTree_Put(t *testing.T) {
 	}
 }
 
+func TestBTree_Size(t *testing.T) {
+	type fields struct {
+		tree *btree.BTree
+		lock *sync.RWMutex
+	}
+	type preValues struct {
+		Key []byte
+		pos *data.LogRecordPos
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		pre    []preValues
+		want   int
+	}{
+		{
+			name: "size",
+			fields: fields{
+				tree: btree.New(32),
+				lock: &sync.RWMutex{},
+			},
+			pre: []preValues{
+				{
+					Key: []byte("test"),
+					pos: &data.LogRecordPos{
+						Fid:    1,
+						Offset: 1,
+					},
+				},
+			},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			bt := &BTree{
+				tree: tt.fields.tree,
+				lock: tt.fields.lock,
+			}
+			for _, d := range tt.pre {
+				bt.Put(d.Key, d.pos)
+			}
+			if got := bt.Size(); got != tt.want {
+				t.Errorf("Size() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
 func TestBTree_Iterator(t *testing.T) {
 	type fields struct {
 		items []*Item

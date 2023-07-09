@@ -24,7 +24,11 @@ func defaultIteratorOption() *IteratorOption {
 
 func destroyDB(db *DB) {
 	if db != nil {
-		err := utils.CleanDBFile(db.options.DirPath)
+		err := db.Close()
+		if err != nil {
+			panic(err)
+		}
+		err = utils.CleanDBFile(db.options.DirPath)
 		if err != nil {
 			panic(err)
 		}
