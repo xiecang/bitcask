@@ -14,6 +14,12 @@ type IteratorOption struct {
 	Reverse bool   // 是否反向迭代
 }
 
+// WriteBatchOption 批量写入配置项
+type WriteBatchOption struct {
+	MaxBatchSize uint // 最大批量写入大小
+
+	SyncWrites bool // 是否同步写入，true 时每次写入都会持久化到磁盘当中
+}
 type IndexType = int8
 
 const (

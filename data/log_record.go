@@ -10,6 +10,7 @@ type LogRecordType = byte
 const (
 	LogRecordNormal LogRecordType = iota
 	LogRecordDelete
+	LogRecordTransactionFinished
 )
 
 // crc type keySize valueSize key value
@@ -28,6 +29,12 @@ type LogRecord struct {
 type LogRecordPos struct {
 	Fid    uint32 // 文件 id
 	Offset int64  // 文件中的偏移量
+}
+
+// TransactionRecord 暂存事务记录
+type TransactionRecord struct {
+	Record *LogRecord
+	Pos    *LogRecordPos
 }
 
 // EncodeLogRecord 对 LogRecord 进行编码，返回编码后的字节数组和字节数组的长度
