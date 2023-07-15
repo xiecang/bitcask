@@ -125,7 +125,7 @@ func TestFile_ReadLogRecord(t *testing.T) {
 			want: &LogRecord{
 				Key:   []byte("key"),
 				Value: []byte(""),
-				Type:  LogRecordDelete,
+				Type:  LogRecordTypeDelete,
 			},
 			want1:   10,
 			wantErr: false,
@@ -327,7 +327,7 @@ func TestOpenFile(t *testing.T) {
 	}
 
 	tmpDir := os.TempDir()
-	ioManager1, _ := fio.NewFileManager(filePath(tmpDir, 1))
+	ioManager1, _ := fio.NewFileManager(GetFilePath(tmpDir, 1))
 	tests := []struct {
 		name    string
 		args    args
@@ -384,8 +384,8 @@ func Test_filePath(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := filePath(tt.args.dirPath, tt.args.fileId); got != tt.want {
-				t.Errorf("filePath() = %v, want %v", got, tt.want)
+			if got := GetFilePath(tt.args.dirPath, tt.args.fileId); got != tt.want {
+				t.Errorf("GetFilePath() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -407,7 +407,7 @@ func Test_logRecordHeader_empty(t *testing.T) {
 			name: "test empty",
 			fields: fields{
 				crc:        0,
-				recordType: LogRecordNormal,
+				recordType: LogRecordTypeNormal,
 				keySize:    0,
 			},
 			want: true,
@@ -416,7 +416,7 @@ func Test_logRecordHeader_empty(t *testing.T) {
 			name: "test not empty",
 			fields: fields{
 				crc:        1,
-				recordType: LogRecordDelete,
+				recordType: LogRecordTypeDelete,
 				keySize:    1,
 			},
 		},

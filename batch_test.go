@@ -124,7 +124,7 @@ func TestWriteBatch_Commit(t *testing.T) {
 						LogRecord: data.LogRecord{
 							Key:   []byte("key"),
 							Value: []byte("value"),
-							Type:  data.LogRecordDelete,
+							Type:  data.LogRecordTypeDelete,
 						},
 						inDB: false,
 					},
@@ -159,7 +159,7 @@ func TestWriteBatch_Commit(t *testing.T) {
 						LogRecord: data.LogRecord{
 							Key:   []byte("key"),
 							Value: []byte("value"),
-							Type:  data.LogRecordDelete,
+							Type:  data.LogRecordTypeDelete,
 						},
 						inDB:    false,
 						dbValue: []byte("value333"),
@@ -197,7 +197,7 @@ func TestWriteBatch_Commit(t *testing.T) {
 			w := db.NewWriteBatch(tt.fields.writeBatchOption)
 
 			for _, r := range tt.fields.records {
-				if r.Type == data.LogRecordDelete {
+				if r.Type == data.LogRecordTypeDelete {
 					if err = w.Delete(r.Key); (err != nil) != tt.wantErr {
 						t.Errorf("Delete() error = %v, wantErr %v", err, tt.wantErr)
 						return

@@ -20,6 +20,7 @@ type DB struct {
 	olderFiles map[uint32]*data.File // 旧数据文件, 只能用于读取
 	index      index.Indexer         // 内存索引
 	seqId      uint64                // 事务序列号，全局递增
+	isMerging  bool                  // 是否正在合并数据文件
 }
 
 // Open 打开 bitcask 数据库存储引擎
@@ -42,6 +43,11 @@ func Open(options Options) (*DB, error) {
 		index:      index.NewIndexer(options.IndexType),
 	}
 
+	// 加载 merge 数据目录
+	if err := db.loadMergeFiles(); err != nil {
+		return nil, err
+	}
+
 	// 加载数据文件
 	var (
 		err     error
@@ -49,6 +55,26 @@ func Open(options Options) (*DB, error) {
 	)
 	if fileIds, err = db.loadDataFiles(); err != nil {
 		return nil, err
+	}
+
+	// 从 hint 文件中加载索引
+	if err = db.loadIndexFromHintFile(); err != nil {
+		return nil, err
+	} else {
+		// 跳过 hint 文件中加载过的 id
+		var nonMergeFileId, err = db.getNonMergeFileId(db.options.DirPath)
+		if err != nil {
+			return nil, err
+		}
+		var newFileIds []int
+		for _, id := range fileIds {
+			if id < int(nonMergeFileId) {
+				// 小于 nonMergeFileId 的数据记录，均在 hint 文件加载过了
+				continue
+			}
+			newFileIds = append(newFileIds, id)
+		}
+		fileIds = newFileIds
 	}
 
 	// 从数据文件中加载索引
@@ -68,7 +94,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 	record := data.LogRecord{
 		Key:   logRecordKeyWithSeq(key, nonTransactionSeqId),
 		Value: value,
-		Type:  data.LogRecordNormal,
+		Type:  data.LogRecordTypeNormal,
 	}
 	pos, err := db.appendLogRecordWithLock(&record)
 	if err != nil {
@@ -116,7 +142,7 @@ func (db *DB) getValueByPosition(pos *data.LogRecordPos) ([]byte, error) {
 		return nil, err
 	}
 
-	if record.Type == data.LogRecordDelete {
+	if record.Type == data.LogRecordTypeDelete {
 		return nil, ErrFileNotFound
 	}
 	return record.Value, nil
@@ -200,7 +226,7 @@ func (db *DB) Delete(key []byte) error {
 	// 构造删除数据的记录
 	record := data.LogRecord{
 		Key:  logRecordKeyWithSeq(key, nonTransactionSeqId),
-		Type: data.LogRecordDelete,
+		Type: data.LogRecordTypeDelete,
 	}
 	// 写入到数据文件中
 	_, err := db.appendLogRecordWithLock(&record)
@@ -334,7 +360,7 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 
 	var updateIndex = func(key []byte, tp data.LogRecordType, pos *data.LogRecordPos) {
 		var ok bool
-		if tp == data.LogRecordDelete {
+		if tp == data.LogRecordTypeDelete {
 			ok = db.index.Delete(key)
 		} else {
 			ok = db.index.Put(key, pos)
@@ -380,7 +406,7 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 				// 非事务记录，直接更新索引
 				updateIndex(realKey, record.Type, pos)
 			} else {
-				if record.Type == data.LogRecordTransactionFinished {
+				if record.Type == data.LogRecordTypeTransactionFinished {
 					for _, r := range transactionRecords[seqId] {
 						updateIndex(r.Record.Key, r.Record.Type, r.Pos)
 					}

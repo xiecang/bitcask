@@ -9,7 +9,11 @@ import (
 	"path/filepath"
 )
 
-const FileNameSuffix = ".data"
+const (
+	FileNameSuffix        = ".data"
+	HintFileName          = "hint-index"
+	MergeFinishedFileName = "merge-finished"
+)
 
 var (
 	ErrInvalidCRC = fmt.Errorf("invalid crc value, log record maybe corrupted")
@@ -37,16 +41,14 @@ func (l *logRecordHeader) empty() bool {
 	return l.crc == 0 && l.keySize == 0 && l.valueSize == 0
 }
 
-func filePath(dirPath string, fileId uint32) string {
+func GetFilePath(dirPath string, fileId uint32) string {
 	name := fmt.Sprintf("%010d%s", fileId, FileNameSuffix)
 	p := filepath.Join(dirPath, name)
 	return p
 }
 
-// OpenFile 打开数据文件
-func OpenFile(dirPath string, fileId uint32) (*File, error) {
-	p := filePath(dirPath, fileId)
-	ioManager, err := fio.NewIOManager(p)
+func newFile(fileName string, fileId uint32) (*File, error) {
+	ioManager, err := fio.NewIOManager(fileName)
 	if err != nil {
 		return nil, err
 	}
@@ -57,6 +59,35 @@ func OpenFile(dirPath string, fileId uint32) (*File, error) {
 	}, nil
 }
 
+// OpenFile 打开数据文件
+func OpenFile(dirPath string, fileId uint32) (*File, error) {
+	p := GetFilePath(dirPath, fileId)
+	return newFile(p, fileId)
+}
+
+func GetHintFileName(dirPath string) string {
+	p := filepath.Join(dirPath, HintFileName)
+	return p
+}
+
+// OpenHintFile 打开 Hint 索引文件
+func OpenHintFile(dirPath string) (*File, error) {
+	p := GetHintFileName(dirPath)
+	return newFile(p, 0)
+}
+
+func mergeFinishedFilePath(dirPath string) string {
+	p := filepath.Join(dirPath, MergeFinishedFileName)
+	return p
+}
+
+// OpenMergeFinishedFile 打开 Merge 完成标识文件
+func OpenMergeFinishedFile(dirPath string) (*File, error) {
+	p := mergeFinishedFilePath(dirPath)
+	return newFile(p, 0)
+}
+
+// ReadLogRecord 根据 offset 读取 LogRecord
 func (f *File) ReadLogRecord(offset int64) (*LogRecord, int64, error) {
 	fileSize, err := f.IOManager.Size()
 	if err != nil {
@@ -123,6 +154,18 @@ func (f *File) Sync() error {
 
 func (f *File) Close() error {
 	return f.IOManager.Close()
+}
+
+// WriteHintRecord 写入索引信息到 Hint 索引文件
+func (f *File) WriteHintRecord(key []byte, pos *LogRecordPos) error {
+	var record = &LogRecord{
+		Key:   key,
+		Value: EncodeLogRecordPos(pos),
+		Type:  LogRecordTypeHint,
+	}
+
+	encodeRecord, _ := EncodeLogRecord(record)
+	return f.Write(encodeRecord)
 }
 
 func (f *File) readNBytes(n int64, offset int64) ([]byte, error) {

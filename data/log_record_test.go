@@ -54,7 +54,7 @@ func TestEncodeLogRecord(t *testing.T) {
 				record: &LogRecord{
 					Key:   []byte("key"),
 					Value: []byte("val"),
-					Type:  LogRecordDelete,
+					Type:  LogRecordTypeDelete,
 				},
 			},
 			want:  []byte{149, 183, 133, 25, 1, 6, 6, 107, 101, 121, 118, 97, 108},
@@ -91,7 +91,7 @@ func Test_decodeLogRecordHeader(t *testing.T) {
 			},
 			want: &logRecordHeader{
 				crc:        251569110,
-				recordType: LogRecordNormal,
+				recordType: LogRecordTypeNormal,
 				keySize:    3,
 				valueSize:  3,
 			},
@@ -104,7 +104,7 @@ func Test_decodeLogRecordHeader(t *testing.T) {
 			},
 			want: &logRecordHeader{
 				crc:        1263740600,
-				recordType: LogRecordNormal,
+				recordType: LogRecordTypeNormal,
 				keySize:    3,
 				valueSize:  0,
 			},
@@ -117,7 +117,7 @@ func Test_decodeLogRecordHeader(t *testing.T) {
 			},
 			want: &logRecordHeader{
 				crc:        4231503112,
-				recordType: LogRecordNormal,
+				recordType: LogRecordTypeNormal,
 				keySize:    0,
 				valueSize:  3,
 			},
@@ -130,7 +130,7 @@ func Test_decodeLogRecordHeader(t *testing.T) {
 			},
 			want: &logRecordHeader{
 				crc:        428193685,
-				recordType: LogRecordDelete,
+				recordType: LogRecordTypeDelete,
 				keySize:    3,
 				valueSize:  3,
 			},
@@ -199,7 +199,7 @@ func Test_getLogRecordCRC(t *testing.T) {
 				record: &LogRecord{
 					Key:   []byte("key"),
 					Value: []byte("val"),
-					Type:  LogRecordDelete,
+					Type:  LogRecordTypeDelete,
 				},
 				header: []byte{1, 6, 6},
 			},

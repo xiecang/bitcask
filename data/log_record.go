@@ -8,9 +8,10 @@ import (
 type LogRecordType = byte
 
 const (
-	LogRecordNormal LogRecordType = iota
-	LogRecordDelete
-	LogRecordTransactionFinished
+	LogRecordTypeNormal LogRecordType = iota
+	LogRecordTypeDelete
+	LogRecordTypeTransactionFinished
+	LogRecordTypeHint
 )
 
 // crc type keySize valueSize key value
@@ -102,4 +103,26 @@ func getLogRecordCRC(record *LogRecord, header []byte) uint32 {
 	crc = crc32.Update(crc, crc32.IEEETable, record.Key)
 	crc = crc32.Update(crc, crc32.IEEETable, record.Value)
 	return crc
+}
+
+// EncodeLogRecordPos 对 LogRecordPos 进行编码，返回编码后的字节数组和字节数组的长度
+func EncodeLogRecordPos(pos *LogRecordPos) []byte {
+	buf := make([]byte, binary.MaxVarintLen32+binary.MaxVarintLen64)
+	var index = 0
+	index += binary.PutUvarint(buf[index:], uint64(pos.Fid))
+	index += binary.PutVarint(buf[index:], pos.Offset)
+	//return buf[:index], int64(index)
+	return buf[:index]
+}
+
+// DecodeLogRecordPos 对字节数组进行解码，返回 LogRecordPos
+func DecodeLogRecordPos(buf []byte) *LogRecordPos {
+	var index = 0
+	fid, n := binary.Uvarint(buf[index:])
+	index += n
+	offset, _ := binary.Varint(buf[index:])
+	return &LogRecordPos{
+		Fid:    uint32(fid),
+		Offset: offset,
+	}
 }

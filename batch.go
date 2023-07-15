@@ -65,7 +65,7 @@ func (w *WriteBatch) Delete(key []byte) error {
 	// 暂存待删除的数据
 	record := data.LogRecord{
 		Key:  key,
-		Type: data.LogRecordDelete,
+		Type: data.LogRecordTypeDelete,
 	}
 	w.pendingWrites[string(key)] = &record
 	return nil
@@ -107,7 +107,7 @@ func (w *WriteBatch) Commit() error {
 	// 写入一条标识事务完成的数据
 	finishedRecord := data.LogRecord{
 		Key:  logRecordKeyWithSeq(keyTransactionFinished, seqId),
-		Type: data.LogRecordTransactionFinished,
+		Type: data.LogRecordTypeTransactionFinished,
 	}
 	if _, err := w.db.appendLogRecord(&finishedRecord); err != nil {
 		return err
@@ -123,9 +123,9 @@ func (w *WriteBatch) Commit() error {
 	// 更新内存索引
 	for _, record := range w.pendingWrites {
 		pos := positions[string(record.Key)]
-		if record.Type == data.LogRecordDelete {
+		if record.Type == data.LogRecordTypeDelete {
 			w.db.index.Delete(record.Key)
-		} else if record.Type == data.LogRecordNormal {
+		} else if record.Type == data.LogRecordTypeNormal {
 			w.db.index.Put(record.Key, pos)
 		}
 	}
