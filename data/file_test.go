@@ -2,7 +2,6 @@ package data
 
 import (
 	"bitcask-go/fio"
-	"bitcask-go/utils"
 	"bytes"
 	"os"
 	"path/filepath"
@@ -135,7 +134,7 @@ func TestFile_ReadLogRecord(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			defer func() {
-				err := utils.CleanDBFile(tt.fields.dirPath)
+				err := CleanDBFile(tt.fields.dirPath)
 				if err != nil {
 					t.Errorf("CleanDBFile() error = %v", err)
 				}
@@ -297,7 +296,7 @@ func TestFile_readNBytes(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_ = utils.CleanDBFile(tt.fields.dirPath)
+			_ = CleanDBFile(tt.fields.dirPath)
 			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)

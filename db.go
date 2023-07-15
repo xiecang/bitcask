@@ -52,7 +52,7 @@ func Open(options Options) (*DB, error) {
 	}
 
 	// 从数据文件中加载索引
-	if err := db.loadIndexFromDataFiles(fileIds); err != nil {
+	if err = db.loadIndexFromDataFiles(fileIds); err != nil {
 		return nil, err
 	}
 
@@ -382,10 +382,11 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 			} else {
 				if record.Type == data.LogRecordTransactionFinished {
 					for _, r := range transactionRecords[seqId] {
-						updateIndex(r.Record.Key, r.Record.Type, pos)
+						updateIndex(r.Record.Key, r.Record.Type, r.Pos)
 					}
 					delete(transactionRecords, seqId)
 				} else {
+					record.Key = realKey
 					transactionRecords[seqId] = append(transactionRecords[seqId], &data.TransactionRecord{
 						Record: record,
 						Pos:    pos,

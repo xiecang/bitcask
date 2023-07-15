@@ -2,7 +2,6 @@ package bitcask_go
 
 import (
 	"bitcask-go/data"
-	"bitcask-go/utils"
 	"reflect"
 	"testing"
 )
@@ -24,11 +23,8 @@ func defaultIteratorOption() *IteratorOption {
 
 func destroyDB(db *DB) {
 	if db != nil {
-		err := db.Close()
-		if err != nil {
-			panic(err)
-		}
-		err = utils.CleanDBFile(db.options.DirPath)
+		_ = db.Close()
+		err := data.CleanDBFile(db.options.DirPath)
 		if err != nil {
 			panic(err)
 		}
