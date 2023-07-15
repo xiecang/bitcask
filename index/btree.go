@@ -22,9 +22,9 @@ func NewBTree() *BTree {
 	}
 }
 
-func (bt *BTree) Put(Key []byte, pos *data.LogRecordPos) bool {
+func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) bool {
 	i := Item{
-		Key: Key,
+		Key: key,
 		Pos: pos,
 	}
 	bt.lock.Lock()
@@ -33,9 +33,9 @@ func (bt *BTree) Put(Key []byte, pos *data.LogRecordPos) bool {
 	return true
 }
 
-func (bt *BTree) Get(Key []byte) *data.LogRecordPos {
+func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	i := Item{
-		Key: Key,
+		Key: key,
 	}
 	btreeItem := bt.tree.Get(&i)
 	if btreeItem == nil {

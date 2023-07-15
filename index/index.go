@@ -9,9 +9,9 @@ import (
 // Indexer 抽象索引接口
 type Indexer interface {
 	// Put 向索引中存储 key 对应的数据位置信息
-	Put(Key []byte, pos *data.LogRecordPos) bool
+	Put(key []byte, pos *data.LogRecordPos) bool
 	// Get 从索引中获取 key 对应的数据位置信息
-	Get(Key []byte) *data.LogRecordPos
+	Get(key []byte) *data.LogRecordPos
 	// Delete 从索引中删除 key 对应的数据位置信息
 	Delete(key []byte) bool
 	// Size 返回索引中元素的数量

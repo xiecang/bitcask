@@ -3,283 +3,150 @@ package index
 import (
 	"bitcask-go/data"
 	"bytes"
-	"github.com/google/btree"
+	goart "github.com/plar/go-adaptive-radix-tree"
 	"reflect"
 	"sync"
 	"testing"
 )
 
-func TestBTree_Delete(t *testing.T) {
+func TestAdaptiveRadixTree_Delete(t *testing.T) {
+	type kv struct {
+		key []byte
+		pos *data.LogRecordPos
+	}
+
 	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
+		values []kv
 	}
 	type args struct {
 		key []byte
-	}
-	type pre struct {
-		key []byte
-		pos *data.LogRecordPos
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		pre    []pre
 		want   bool
 	}{
 		{
 			name: "test key nil",
 			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
+				values: []kv{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
 			},
 			args: args{
 				key: nil,
-			},
-			pre: []pre{
-				{
-					key: []byte("test"),
-					pos: &data.LogRecordPos{
-						Fid:    1,
-						Offset: 1,
-					},
-				},
 			},
 			want: false,
 		},
 		{
 			name: "test delete one",
 			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
+				values: []kv{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
 			},
 			args: args{
 				key: []byte("test"),
-			},
-			pre: []pre{
-				{
-					key: []byte("test"),
-					pos: &data.LogRecordPos{
-						Fid:    1,
-						Offset: 1,
-					},
-				},
 			},
 			want: true,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bt := &BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
+			art := NewART()
+			for _, value := range tt.fields.values {
+				art.Put(value.key, value.pos)
 			}
-			for _, p := range tt.pre {
-				bt.Put(p.key, p.pos)
-			}
-			if got := bt.Delete(tt.args.key); got != tt.want {
+			if got := art.Delete(tt.args.key); got != tt.want {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestBTree_Get(t *testing.T) {
+func TestAdaptiveRadixTree_Get(t *testing.T) {
+	type kv struct {
+		key []byte
+		pos *data.LogRecordPos
+	}
+
 	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
+		values []kv
 	}
 	type args struct {
 		key []byte
-	}
-	type pre struct {
-		key []byte
-		pos *data.LogRecordPos
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		pre    []pre
 		want   *data.LogRecordPos
 	}{
 		{
 			name: "test key nil",
 			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
+				values: []kv{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
 			},
 			args: args{
 				key: nil,
-			},
-			pre: []pre{
-				{
-					key: []byte("test"),
-					pos: &data.LogRecordPos{
-						Fid:    1,
-						Offset: 1,
-					},
-				},
 			},
 			want: nil,
 		}, {
 			name: "test get one",
 			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
+				values: []kv{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
 			},
 			args: args{
 				key: []byte("test"),
-			},
-			pre: []pre{
-				{
-					key: []byte("test"),
-					pos: &data.LogRecordPos{
-						Fid:    1,
-						Offset: 1,
-					},
-				},
 			},
 			want: &data.LogRecordPos{
 				Fid:    1,
 				Offset: 1,
 			},
-		},
-	}
+		}}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bt := &BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
+			art := NewART()
+			for _, value := range tt.fields.values {
+				art.Put(value.key, value.pos)
 			}
-			for _, d := range tt.pre {
-				bt.Put(d.key, d.pos)
-			}
-			if got := bt.Get(tt.args.key); !reflect.DeepEqual(got, tt.want) {
+			if got := art.Get(tt.args.key); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Get() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func TestBTree_Put(t *testing.T) {
-	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
-	}
-	type args struct {
-		key []byte
-		pos *data.LogRecordPos
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
-	}{
-		{
-			name: "test key nil",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: nil,
-				pos: nil,
-			},
-			want: true,
-		},
-		{
-			name: "test put nil",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: []byte("test"),
-				pos: nil,
-			},
-			want: true,
-		},
-		{
-			name: "test put1",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			args: args{
-				key: []byte("test"),
-				pos: &data.LogRecordPos{
-					Fid:    1,
-					Offset: 1,
-				},
-			},
-			want: true,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bt := &BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
-			}
-			if got := bt.Put(tt.args.key, tt.args.pos); got != tt.want {
-				t.Errorf("Put() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestBTree_Size(t *testing.T) {
-	type fields struct {
-		tree *btree.BTree
-		lock *sync.RWMutex
-	}
-	type preValues struct {
-		key []byte
-		pos *data.LogRecordPos
-	}
-	tests := []struct {
-		name   string
-		fields fields
-		pre    []preValues
-		want   int
-	}{
-		{
-			name: "size",
-			fields: fields{
-				tree: btree.New(32),
-				lock: &sync.RWMutex{},
-			},
-			pre: []preValues{
-				{
-					key: []byte("test"),
-					pos: &data.LogRecordPos{
-						Fid:    1,
-						Offset: 1,
-					},
-				},
-			},
-			want: 1,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			bt := &BTree{
-				tree: tt.fields.tree,
-				lock: tt.fields.lock,
-			}
-			for _, d := range tt.pre {
-				bt.Put(d.key, d.pos)
-			}
-			if got := bt.Size(); got != tt.want {
-				t.Errorf("Size() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-func TestBTree_Iterator(t *testing.T) {
+func TestAdaptiveRadixTree_Iterator(t *testing.T) {
 	type fields struct {
 		items []*Item
 	}
@@ -298,7 +165,7 @@ func TestBTree_Iterator(t *testing.T) {
 			args: args{
 				reverse: false,
 			},
-			want: &bTreeIterator{
+			want: &artIterator{
 				currIndex: 0,
 				reverse:   false,
 				values:    []*Item{},
@@ -328,7 +195,7 @@ func TestBTree_Iterator(t *testing.T) {
 			args: args{
 				reverse: false,
 			},
-			want: &bTreeIterator{
+			want: &artIterator{
 				currIndex: 0,
 				reverse:   false,
 				values: []*Item{
@@ -373,7 +240,7 @@ func TestBTree_Iterator(t *testing.T) {
 			args: args{
 				reverse: true,
 			},
-			want: &bTreeIterator{
+			want: &artIterator{
 				currIndex: 0,
 				reverse:   true,
 				values: []*Item{
@@ -398,11 +265,11 @@ func TestBTree_Iterator(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			bt := NewBTree()
+			art := NewART()
 			for _, item := range tt.fields.items {
-				bt.Put(item.Key, item.Pos)
+				art.Put(item.Key, item.Pos)
 			}
-			got := bt.Iterator(tt.args.reverse)
+			got := art.Iterator(tt.args.reverse)
 			if !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Iterator() = %v, want %v", got, tt.want)
 			}
@@ -413,7 +280,119 @@ func TestBTree_Iterator(t *testing.T) {
 	}
 }
 
-func Test_bTreeIterator_Close(t *testing.T) {
+func TestAdaptiveRadixTree_Put(t *testing.T) {
+	type args struct {
+		key []byte
+		pos *data.LogRecordPos
+	}
+	tests := []struct {
+		name string
+		args args
+		want bool
+	}{
+		{
+			name: "test key nil",
+			args: args{
+				key: nil,
+				pos: nil,
+			},
+			want: true,
+		},
+		{
+			name: "test put nil",
+			args: args{
+				key: []byte("test"),
+				pos: nil,
+			},
+			want: true,
+		},
+		{
+			name: "test put1",
+			args: args{
+				key: []byte("test"),
+				pos: &data.LogRecordPos{
+					Fid:    1,
+					Offset: 1,
+				},
+			},
+			want: true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			art := NewART()
+			if got := art.Put(tt.args.key, tt.args.pos); got != tt.want {
+				t.Errorf("Put() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestAdaptiveRadixTree_Size(t *testing.T) {
+	type kv struct {
+		key []byte
+		pos *data.LogRecordPos
+	}
+	type fields struct {
+		values []kv
+	}
+	tests := []struct {
+		name   string
+		fields fields
+		want   int
+	}{
+		{
+			name: "test size",
+			fields: fields{
+				values: []kv{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
+			},
+			want: 1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			art := NewART()
+			for _, value := range tt.fields.values {
+				art.Put(value.key, value.pos)
+			}
+			if got := art.Size(); got != tt.want {
+				t.Errorf("Size() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewART(t *testing.T) {
+	tests := []struct {
+		name string
+		want *AdaptiveRadixTree
+	}{
+		{
+			name: "test new art",
+			want: &AdaptiveRadixTree{
+				tree: goart.New(),
+				lock: new(sync.RWMutex),
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := NewART(); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("NewART() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func Test_artIterator_Close(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -442,20 +421,20 @@ func Test_bTreeIterator_Close(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			b.Close()
-			if b.values != nil {
-				t.Errorf("values not nil, values: %+v", b.values)
+			ai.Close()
+			if ai.values != nil {
+				t.Errorf("values not nil, values: %+v", ai.values)
 			}
 		})
 	}
 }
 
-func Test_bTreeIterator_Key(t *testing.T) {
+func Test_artIterator_Key(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -486,19 +465,19 @@ func Test_bTreeIterator_Key(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			if got := b.Key(); !reflect.DeepEqual(got, tt.want) {
+			if got := ai.Key(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Key() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_bTreeIterator_Next(t *testing.T) {
+func Test_artIterator_Next(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -571,23 +550,25 @@ func Test_bTreeIterator_Next(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			var index = b.currIndex
-			var wantKey = b.values[index+1].Key
-			b.Next()
-			var currentKey = b.values[b.currIndex].Key
+			var index = ai.currIndex
+			var wantKey = ai.values[index+1].Key
+
+			ai.Next()
+			var currentKey = ai.values[ai.currIndex].Key
 			if bytes.Compare(currentKey, wantKey) != 0 {
 				t.Errorf("Next() = %v, want %v", currentKey, wantKey)
 			}
+
 		})
 	}
 }
 
-func Test_bTreeIterator_Rewind(t *testing.T) {
+func Test_artIterator_Rewind(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -660,20 +641,20 @@ func Test_bTreeIterator_Rewind(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			b.Rewind()
-			if bytes.Compare(b.values[b.currIndex].Key, tt.fields.values[0].Key) != 0 {
-				t.Errorf("Rewind() = %v, want %v", b.values[b.currIndex].Key, tt.fields.values[0].Key)
+			ai.Rewind()
+			if bytes.Compare(ai.values[ai.currIndex].Key, tt.fields.values[0].Key) != 0 {
+				t.Errorf("Rewind() = %v, want %v", ai.values[ai.currIndex].Key, tt.fields.values[0].Key)
 			}
 		})
 	}
 }
 
-func Test_bTreeIterator_Seek(t *testing.T) {
+func Test_artIterator_Seek(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -795,36 +776,36 @@ func Test_bTreeIterator_Seek(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			b.Seek(tt.args.key)
+			ai.Seek(tt.args.key)
 
-			if tt.wantValid != b.Valid() {
-				t.Errorf("Seek() = %v, want %v", b.Valid(), tt.wantValid)
+			if tt.wantValid != ai.Valid() {
+				t.Errorf("Seek() = %v, want %v", ai.Valid(), tt.wantValid)
 			}
-			if !b.Valid() {
-				if b.currIndex != len(b.values) {
-					t.Errorf("Seek() = %v, want %v", b.currIndex, len(b.values))
+			if !ai.Valid() {
+				if ai.currIndex != len(ai.values) {
+					t.Errorf("Seek() = %v, want %v", ai.currIndex, len(ai.values))
 				}
 				return
 			}
-			key := b.values[b.currIndex].Key
+			key := ai.values[ai.currIndex].Key
 
 			if bytes.Compare(key, tt.args.key) != 0 {
-				t.Errorf("Seek() = %v, want %v", b.values[b.currIndex].Key, tt.args.key)
+				t.Errorf("Seek() = %v, want %v", ai.values[ai.currIndex].Key, tt.args.key)
 			}
-			if b.Valid() {
-				b.Next()
+			if ai.Valid() {
+				ai.Next()
 				if tt.fields.reverse {
-					if bytes.Compare(b.values[b.currIndex].Key, key) != -1 {
-						t.Errorf("Seek() = %v, want %v", b.values[b.currIndex].Key, key)
+					if bytes.Compare(ai.values[ai.currIndex].Key, key) != -1 {
+						t.Errorf("Seek() = %v, want %v", ai.values[ai.currIndex].Key, key)
 					}
 				} else {
-					if bytes.Compare(b.values[b.currIndex].Key, key) != 1 {
-						t.Errorf("Seek() = %v, want %v", b.values[b.currIndex].Key, key)
+					if bytes.Compare(ai.values[ai.currIndex].Key, key) != 1 {
+						t.Errorf("Seek() = %v, want %v", ai.values[ai.currIndex].Key, key)
 					}
 				}
 			}
@@ -832,7 +813,7 @@ func Test_bTreeIterator_Seek(t *testing.T) {
 	}
 }
 
-func Test_bTreeIterator_Valid(t *testing.T) {
+func Test_artIterator_Valid(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -908,19 +889,19 @@ func Test_bTreeIterator_Valid(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			if got := b.Valid(); got != tt.want {
+			if got := ai.Valid(); got != tt.want {
 				t.Errorf("Valid() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_bTreeIterator_Value(t *testing.T) {
+func Test_artIterator_Value(t *testing.T) {
 	type fields struct {
 		currIndex int
 		reverse   bool
@@ -954,39 +935,39 @@ func Test_bTreeIterator_Value(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			b := bTreeIterator{
+			ai := &artIterator{
 				currIndex: tt.fields.currIndex,
 				reverse:   tt.fields.reverse,
 				values:    tt.fields.values,
 			}
-			if got := b.Value(); !reflect.DeepEqual(got, tt.want) {
+			if got := ai.Value(); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Value() = %v, want %v", got, tt.want)
 			}
 		})
 	}
 }
 
-func Test_newBTreeIterator(t *testing.T) {
-	type args struct {
-		tree    *btree.BTree
-		reverse bool
-	}
+func Test_newARTIterator(t *testing.T) {
 	type fields struct {
 		values []*Item
+	}
+	type args struct {
+		tree    goart.Tree
+		reverse bool
 	}
 	tests := []struct {
 		name   string
 		fields fields
 		args   args
-		want   *bTreeIterator
+		want   *artIterator
 	}{
 		{
 			name: "new iterator",
 			args: args{
-				tree:    btree.New(32),
+				tree:    goart.New(),
 				reverse: false,
 			},
-			want: &bTreeIterator{
+			want: &artIterator{
 				currIndex: 0,
 				reverse:   false,
 				values:    []*Item{},
@@ -1020,10 +1001,10 @@ func Test_newBTreeIterator(t *testing.T) {
 				},
 			},
 			args: args{
-				tree:    btree.New(32),
+				tree:    goart.New(),
 				reverse: false,
 			},
-			want: &bTreeIterator{
+			want: &artIterator{
 				currIndex: 0,
 				reverse:   false,
 				values: []*Item{
@@ -1079,10 +1060,10 @@ func Test_newBTreeIterator(t *testing.T) {
 				},
 			},
 			args: args{
-				tree:    btree.New(32),
+				tree:    goart.New(),
 				reverse: true,
 			},
-			want: &bTreeIterator{
+			want: &artIterator{
 				currIndex: 0,
 				reverse:   true,
 				values: []*Item{
@@ -1114,10 +1095,11 @@ func Test_newBTreeIterator(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, value := range tt.fields.values {
-				tt.args.tree.ReplaceOrInsert(value)
+				tt.args.tree.Insert(value.Key, value.Pos)
 			}
-			if got := newBTreeIterator(tt.args.tree, tt.args.reverse); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("newBTreeIterator() = %v, want %v", got, tt.want)
+
+			if got := newARTIterator(tt.args.tree, tt.args.reverse); !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("newARTIterator() = %v, want %v", got, tt.want)
 			}
 		})
 	}
