@@ -66,9 +66,10 @@ func TestWriteBatch_Commit(t *testing.T) {
 		records          []testLogRecord
 	}
 	tests := []struct {
-		name    string
-		fields  fields
-		wantErr bool
+		name      string
+		fields    fields
+		wantErr   bool
+		wantSeqId uint64
 	}{
 		{
 			name: "put and commit",
@@ -94,7 +95,8 @@ func TestWriteBatch_Commit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
+			wantErr:   false,
+			wantSeqId: 1,
 		},
 		{
 			name: "commit empty",
@@ -102,7 +104,8 @@ func TestWriteBatch_Commit(t *testing.T) {
 				options:          defaultOptions(),
 				writeBatchOption: defaultWriteBatchOption(),
 			},
-			wantErr: false,
+			wantErr:   false,
+			wantSeqId: 0,
 		},
 		{
 			name: "delete and commit",
@@ -135,7 +138,8 @@ func TestWriteBatch_Commit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
+			wantErr:   false,
+			wantSeqId: 1,
 		},
 		{
 			name: "put key with diff value and commit",
@@ -178,7 +182,8 @@ func TestWriteBatch_Commit(t *testing.T) {
 					},
 				},
 			},
-			wantErr: false,
+			wantErr:   false,
+			wantSeqId: 1,
 		},
 	}
 	for _, tt := range tests {
@@ -224,6 +229,9 @@ func TestWriteBatch_Commit(t *testing.T) {
 					t.Errorf("数据库中的值，与原值不符, valueInDB: %v, valueWant: %v", gotValue, r.dbValue)
 				}
 			}
+			if db.seqId != tt.wantSeqId {
+				t.Errorf("seqId 不符, got: %v, want: %v", db.seqId, tt.wantSeqId)
+			}
 
 			// 重启 db 后行为应保持一致
 			if err = db.Close(); (err != nil) != tt.wantErr {
@@ -251,8 +259,39 @@ func TestWriteBatch_Commit(t *testing.T) {
 					t.Errorf("数据库中的值，与原值不符, valueInDB: %v, valueWant: %v", gotValue, r.dbValue)
 				}
 			}
+
+			// 校验 seqId 是否递增
+			if db2.seqId != tt.wantSeqId {
+				t.Errorf("seqId 不符, got: %v, want: %v", db2.seqId, tt.wantSeqId)
+			}
 		})
 	}
+
+	t.Run("write greater than MaxBatchSize", func(t *testing.T) {
+		db, err := Open(defaultOptions())
+		if err != nil {
+			t.Errorf("Open() error = %v", err)
+			return
+		}
+		defer destroyDB(db)
+		w := db.NewWriteBatch(defaultWriteBatchOption())
+
+		var maxSize = int(w.options.MaxBatchSize)
+		for i := 0; i < maxSize+1; i++ {
+			if err = w.Put(utils.GetTestKey(i), utils.RandomValue(i)); err != nil {
+				t.Errorf("Put() error = %v", err)
+				return
+			}
+		}
+
+		if err = w.Commit(); err != ErrExceedMaxBatchSize {
+			t.Errorf("Commit() error = %v, wantErr %v", err, ErrExceedMaxBatchSize)
+		}
+
+		if db.index.Size() != 0 {
+			t.Errorf("index size should be 0, got %v", db.index.Size())
+		}
+	})
 }
 
 func TestWriteBatch_Delete(t *testing.T) {
