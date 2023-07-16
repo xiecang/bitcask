@@ -12,6 +12,7 @@ const (
 	LogRecordTypeDelete
 	LogRecordTypeTransactionFinished
 	LogRecordTypeHint
+	LogRecordTypeSeqId
 )
 
 // crc type keySize valueSize key value

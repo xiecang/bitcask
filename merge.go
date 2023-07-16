@@ -192,11 +192,14 @@ func (db *DB) loadMergeFiles() error {
 	var mergeFinished bool
 	var mergeFileNames []string
 	for _, entry := range dirEntries {
-		if entry.Name() == data.MergeFinishedFileName {
+		var name = entry.Name()
+		if name == data.FileNameMergeFinished {
 			mergeFinished = true
+		} else if name == data.FileNameSeqId {
+			continue
 		}
 		// 这里包含了 hint file 和 merge finished file
-		mergeFileNames = append(mergeFileNames, entry.Name())
+		mergeFileNames = append(mergeFileNames, name)
 	}
 
 	// 如果没有 merge 完成的文件，说明上次合并过程中出现了异常

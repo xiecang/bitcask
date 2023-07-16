@@ -11,8 +11,9 @@ import (
 
 const (
 	FileNameSuffix        = ".data"
-	HintFileName          = "hint-index"
-	MergeFinishedFileName = "merge-finished"
+	FileNameHint          = "hint-index"
+	FileNameMergeFinished = "merge-finished"
+	FileNameSeqId         = "seq-id"
 )
 
 var (
@@ -66,7 +67,7 @@ func OpenFile(dirPath string, fileId uint32) (*File, error) {
 }
 
 func GetHintFileName(dirPath string) string {
-	p := filepath.Join(dirPath, HintFileName)
+	p := filepath.Join(dirPath, FileNameHint)
 	return p
 }
 
@@ -76,14 +77,33 @@ func OpenHintFile(dirPath string) (*File, error) {
 	return newFile(p, 0)
 }
 
-func mergeFinishedFilePath(dirPath string) string {
-	p := filepath.Join(dirPath, MergeFinishedFileName)
+func mergeFinishedFileName(dirPath string) string {
+	p := filepath.Join(dirPath, FileNameMergeFinished)
 	return p
 }
 
 // OpenMergeFinishedFile 打开 Merge 完成标识文件
 func OpenMergeFinishedFile(dirPath string) (*File, error) {
-	p := mergeFinishedFilePath(dirPath)
+	p := mergeFinishedFileName(dirPath)
+	return newFile(p, 0)
+}
+
+func seqIdFileName(dirPath string) string {
+	p := filepath.Join(dirPath, FileNameSeqId)
+	return p
+}
+
+func IsSeqIdFileNotExit(dirPath string) bool {
+	name := seqIdFileName(dirPath)
+	if _, err := os.Stat(name); os.IsNotExist(err) {
+		return true
+	}
+	return false
+}
+
+// OpenSeqIdFile 打开存储事务序列号的文件
+func OpenSeqIdFile(dirPath string) (*File, error) {
+	p := seqIdFileName(dirPath)
 	return newFile(p, 0)
 }
 

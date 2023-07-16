@@ -58,6 +58,10 @@ func (art *AdaptiveRadixTree) Iterator(reverse bool) Iterator {
 	return newARTIterator(art.tree, reverse)
 }
 
+func (art *AdaptiveRadixTree) Close() error {
+	return nil
+}
+
 // artIterator ART 索引迭代器
 type artIterator struct {
 	currIndex int     // 当前遍历到的索引位置

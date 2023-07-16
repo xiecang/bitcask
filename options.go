@@ -23,6 +23,7 @@ type WriteBatchOption struct {
 type IndexType = int8
 
 const (
-	Btree IndexType = iota + 1 // B+ 树索引
-	ART                        // Adaptive Radix Tree 自适应基数树索引
+	Btree     IndexType = iota + 1 // B+ 树索引
+	ART                            // Adaptive Radix Tree 自适应基数树索引
+	BPlusTree                      // B+ 树索引, 将索引数据存储在磁盘当中
 )

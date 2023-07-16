@@ -20,6 +20,11 @@ type WriteBatch struct {
 }
 
 func (db *DB) NewWriteBatch(options WriteBatchOption) *WriteBatch {
+	if db.options.IndexType == BPlusTree && !db.isInitial && db.isSeqIdFileNotExit {
+		// 非初始化时，如果是 B+ 树索引，且未检测到序列号文件
+		// 目前暂时禁用 WriteBatch 功能，可选择从数据文件中读取到最大序列号(可能影响性能), 暂不实现
+		panic("can not use WriteBatch when index type is BPlusTree and seqId file is not exist")
+	}
 	return &WriteBatch{
 		options:       options,
 		mu:            &sync.Mutex{},
@@ -110,6 +115,11 @@ func (w *WriteBatch) Commit() error {
 		Type: data.LogRecordTypeTransactionFinished,
 	}
 	if _, err := w.db.appendLogRecord(&finishedRecord); err != nil {
+		return err
+	}
+
+	// 保存事务序列号到文件
+	if err := w.db.saveSeqIdToFile(); err != nil {
 		return err
 	}
 
