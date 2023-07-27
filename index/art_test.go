@@ -22,10 +22,11 @@ func TestAdaptiveRadixTree_Delete(t *testing.T) {
 		key []byte
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		want   bool
+		name     string
+		fields   fields
+		args     args
+		want     bool
+		wantData *data.LogRecordPos
 	}{
 		{
 			name: "test key nil",
@@ -62,6 +63,10 @@ func TestAdaptiveRadixTree_Delete(t *testing.T) {
 				key: []byte("test"),
 			},
 			want: true,
+			wantData: &data.LogRecordPos{
+				Fid:    1,
+				Offset: 1,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -70,8 +75,10 @@ func TestAdaptiveRadixTree_Delete(t *testing.T) {
 			for _, value := range tt.fields.values {
 				art.Put(value.key, value.pos)
 			}
-			if got := art.Delete(tt.args.key); got != tt.want {
+			if oldData, got := art.Delete(tt.args.key); got != tt.want {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
+			} else if !reflect.DeepEqual(oldData, tt.wantData) {
+				t.Errorf("Delete() = %v, want %v", oldData, tt.wantData)
 			}
 		})
 	}
@@ -311,14 +318,22 @@ func TestAdaptiveRadixTree_Iterator(t *testing.T) {
 }
 
 func TestAdaptiveRadixTree_Put(t *testing.T) {
+	type kv struct {
+		key []byte
+		pos *data.LogRecordPos
+	}
+	type fields struct {
+		values []kv
+	}
 	type args struct {
 		key []byte
 		pos *data.LogRecordPos
 	}
 	tests := []struct {
-		name string
-		args args
-		want bool
+		name   string
+		fields fields
+		args   args
+		want   *data.LogRecordPos
 	}{
 		{
 			name: "test key nil",
@@ -326,7 +341,7 @@ func TestAdaptiveRadixTree_Put(t *testing.T) {
 				key: nil,
 				pos: nil,
 			},
-			want: true,
+			want: nil,
 		},
 		{
 			name: "test put nil",
@@ -334,7 +349,7 @@ func TestAdaptiveRadixTree_Put(t *testing.T) {
 				key: []byte("test"),
 				pos: nil,
 			},
-			want: true,
+			want: nil,
 		},
 		{
 			name: "test put1",
@@ -345,13 +360,41 @@ func TestAdaptiveRadixTree_Put(t *testing.T) {
 					Offset: 1,
 				},
 			},
-			want: true,
+			want: nil,
+		},
+		{
+			name: "test put2",
+			fields: fields{
+				values: []kv{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
+			},
+			args: args{
+				key: []byte("test"),
+				pos: &data.LogRecordPos{
+					Fid:    2,
+					Offset: 2,
+				},
+			},
+			want: &data.LogRecordPos{
+				Fid:    1,
+				Offset: 1,
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			art := NewART()
-			if got := art.Put(tt.args.key, tt.args.pos); got != tt.want {
+			for _, item := range tt.fields.values {
+				art.Put(item.key, item.pos)
+			}
+			if got := art.Put(tt.args.key, tt.args.pos); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Put() = %v, want %v", got, tt.want)
 			}
 		})

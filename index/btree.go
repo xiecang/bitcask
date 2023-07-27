@@ -22,15 +22,18 @@ func NewBTree() *BTree {
 	}
 }
 
-func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) bool {
+func (bt *BTree) Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos {
 	i := Item{
 		Key: key,
 		Pos: pos,
 	}
 	bt.lock.Lock()
-	bt.tree.ReplaceOrInsert(&i)
+	oldItem := bt.tree.ReplaceOrInsert(&i)
 	bt.lock.Unlock()
-	return true
+	if oldItem == nil {
+		return nil
+	}
+	return oldItem.(*Item).Pos
 }
 
 func (bt *BTree) Get(key []byte) *data.LogRecordPos {
@@ -44,7 +47,7 @@ func (bt *BTree) Get(key []byte) *data.LogRecordPos {
 	return btreeItem.(*Item).Pos
 }
 
-func (bt *BTree) Delete(key []byte) bool {
+func (bt *BTree) Delete(key []byte) (*data.LogRecordPos, bool) {
 	it := Item{
 		Key: key,
 	}
@@ -52,9 +55,9 @@ func (bt *BTree) Delete(key []byte) bool {
 	oldItem := bt.tree.Delete(&it)
 	bt.lock.Unlock()
 	if oldItem == nil {
-		return false
+		return nil, false
 	}
-	return true
+	return oldItem.(*Item).Pos, true
 }
 
 func (bt *BTree) Size() int {

@@ -32,9 +32,10 @@ type DB struct {
 	seqId              uint64                // 事务序列号，全局递增
 	isMerging          bool                  // 是否正在合并数据文件
 	isInitial          bool                  // 是否已经初始化
-	isSeqIdFileNotExit bool                  // 存储事务最大id的文件是否不存在
+	isSeqIdFileNotExit bool                  // 存储事务最大 id 的文件是否不存在
 	fileLock           *flock.Flock          // 文件锁, 防止多个进程同时打开数据库
 	bytesWrite         uint                  // 未执行 sync 前，累计写入的字节数
+	reclaimSize        int64                 // 表示有多少数据是无效的
 }
 
 func fileLockPath(dirPath string) string {
@@ -159,8 +160,8 @@ func (db *DB) Put(key []byte, value []byte) error {
 		return err
 	}
 	// 更新内存索引
-	if ok := db.index.Put(key, pos); !ok {
-		return ErrIndexUpdateFailed
+	if oldPos := db.index.Put(key, pos); oldPos != nil {
+		db.reclaimSize += int64(oldPos.Size)
 	}
 	return nil
 }
@@ -348,14 +349,19 @@ func (db *DB) Delete(key []byte) error {
 		Type: data.LogRecordTypeDelete,
 	}
 	// 写入到数据文件中
-	_, err := db.appendLogRecordWithLock(&record)
+	pos, err := db.appendLogRecordWithLock(&record)
 	if err != nil {
 		return err
 	}
+	db.reclaimSize += int64(pos.Size)
+
 	// 从内存索引中将对应的 key 删除
-	ok := db.index.Delete(key)
+	oldPos, ok := db.index.Delete(key)
 	if !ok {
 		return ErrIndexUpdateFailed
+	}
+	if oldPos != nil {
+		db.reclaimSize += int64(oldPos.Size)
 	}
 	return nil
 }
@@ -496,14 +502,15 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 	}
 
 	var updateIndex = func(key []byte, tp data.LogRecordType, pos *data.LogRecordPos) {
-		var ok bool
+		var oldPos *data.LogRecordPos
 		if tp == data.LogRecordTypeDelete {
-			ok = db.index.Delete(key)
+			oldPos, _ = db.index.Delete(key)
+			db.reclaimSize += int64(pos.Size)
 		} else {
-			ok = db.index.Put(key, pos)
+			oldPos = db.index.Put(key, pos)
 		}
-		if !ok {
-			panic("failed to update index at startup")
+		if oldPos != nil {
+			db.reclaimSize += int64(oldPos.Size)
 		}
 	}
 
@@ -535,6 +542,7 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 			pos := &data.LogRecordPos{
 				Fid:    file.Id,
 				Offset: offset,
+				Size:   uint32(size),
 			}
 
 			// 解析 key, 拿到事务序列号

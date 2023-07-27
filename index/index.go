@@ -8,12 +8,12 @@ import (
 
 // Indexer 抽象索引接口
 type Indexer interface {
-	// Put 向索引中存储 key 对应的数据位置信息
-	Put(key []byte, pos *data.LogRecordPos) bool
+	// Put 向索引中存储 key 对应的数据位置信息, 返回旧的数据位置信息
+	Put(key []byte, pos *data.LogRecordPos) *data.LogRecordPos
 	// Get 从索引中获取 key 对应的数据位置信息
 	Get(key []byte) *data.LogRecordPos
-	// Delete 从索引中删除 key 对应的数据位置信息
-	Delete(key []byte) bool
+	// Delete 从索引中删除 key 对应的数据位置信息, 返回旧的数据位置信息
+	Delete(key []byte) (*data.LogRecordPos, bool)
 	// Size 返回索引中元素的数量
 	Size() int
 	// Iterator 返回一个迭代器，用于遍历索引中的所有元素

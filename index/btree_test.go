@@ -22,11 +22,12 @@ func TestBTree_Delete(t *testing.T) {
 		pos *data.LogRecordPos
 	}
 	tests := []struct {
-		name   string
-		fields fields
-		args   args
-		pre    []pre
-		want   bool
+		name     string
+		fields   fields
+		args     args
+		pre      []pre
+		want     bool
+		wantData *data.LogRecordPos
 	}{
 		{
 			name: "test key nil",
@@ -67,6 +68,10 @@ func TestBTree_Delete(t *testing.T) {
 				},
 			},
 			want: true,
+			wantData: &data.LogRecordPos{
+				Fid:    1,
+				Offset: 1,
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -78,7 +83,9 @@ func TestBTree_Delete(t *testing.T) {
 			for _, p := range tt.pre {
 				bt.Put(p.key, p.pos)
 			}
-			if got := bt.Delete(tt.args.key); got != tt.want {
+			if wantData, got := bt.Delete(tt.args.key); got != tt.want {
+				t.Errorf("Delete() = %v, want %v", got, tt.want)
+			} else if !reflect.DeepEqual(wantData, tt.wantData) {
 				t.Errorf("Delete() = %v, want %v", got, tt.want)
 			}
 		})
@@ -164,9 +171,15 @@ func TestBTree_Get(t *testing.T) {
 }
 
 func TestBTree_Put(t *testing.T) {
+	type pre struct {
+		key []byte
+		pos *data.LogRecordPos
+	}
 	type fields struct {
 		tree *btree.BTree
 		lock *sync.RWMutex
+
+		pre []pre
 	}
 	type args struct {
 		key []byte
@@ -176,7 +189,7 @@ func TestBTree_Put(t *testing.T) {
 		name   string
 		fields fields
 		args   args
-		want   bool
+		want   *data.LogRecordPos
 	}{
 		{
 			name: "test key nil",
@@ -188,7 +201,7 @@ func TestBTree_Put(t *testing.T) {
 				key: nil,
 				pos: nil,
 			},
-			want: true,
+			want: nil,
 		},
 		{
 			name: "test put nil",
@@ -200,10 +213,37 @@ func TestBTree_Put(t *testing.T) {
 				key: []byte("test"),
 				pos: nil,
 			},
-			want: true,
+			want: nil,
 		},
 		{
 			name: "test put1",
+			fields: fields{
+				tree: btree.New(32),
+				lock: &sync.RWMutex{},
+				pre: []pre{
+					{
+						key: []byte("test"),
+						pos: &data.LogRecordPos{
+							Fid:    1,
+							Offset: 1,
+						},
+					},
+				},
+			},
+			args: args{
+				key: []byte("test"),
+				pos: &data.LogRecordPos{
+					Fid:    2,
+					Offset: 2,
+				},
+			},
+			want: &data.LogRecordPos{
+				Fid:    1,
+				Offset: 1,
+			},
+		},
+		{
+			name: "test put exist",
 			fields: fields{
 				tree: btree.New(32),
 				lock: &sync.RWMutex{},
@@ -215,7 +255,7 @@ func TestBTree_Put(t *testing.T) {
 					Offset: 1,
 				},
 			},
-			want: true,
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -224,7 +264,10 @@ func TestBTree_Put(t *testing.T) {
 				tree: tt.fields.tree,
 				lock: tt.fields.lock,
 			}
-			if got := bt.Put(tt.args.key, tt.args.pos); got != tt.want {
+			for _, d := range tt.fields.pre {
+				bt.Put(d.key, d.pos)
+			}
+			if got := bt.Put(tt.args.key, tt.args.pos); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("Put() = %v, want %v", got, tt.want)
 			}
 		})
