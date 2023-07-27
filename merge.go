@@ -2,6 +2,7 @@ package bitcask_go
 
 import (
 	"bitcask-go/data"
+	"bitcask-go/utils"
 	"io"
 	"os"
 	"path"
@@ -27,6 +28,32 @@ func (db *DB) getMergeFiles() (mergeFiles []*data.File, nonMergeFileId uint32, e
 		err = ErrMergeInProgress
 		return
 	}
+
+	// 查看可以 merge 的数据量是否达到阈值
+	var totalSize int64
+	totalSize, err = utils.DirSize(db.options.DirPath)
+	if err != nil {
+		return
+	}
+
+	if float32(db.reclaimableSize)/float32(totalSize) < db.options.DataFileMergeThreshold {
+		// 数据量未达到阈值，直接返回
+		err = ErrMergeThresholdNotReached
+		return
+	}
+
+	// 查看剩余磁盘空间是否足够
+	var availableSpace uint64
+	availableSpace, err = utils.AvailableDiskSpace()
+	if err != nil {
+		return
+	}
+	if uint64(totalSize-db.reclaimableSize) >= availableSpace {
+		// 磁盘空间不足，直接返回
+		err = ErrInsufficientDiskSpace
+		return
+	}
+
 	db.isMerging = true
 	defer func() {
 		db.isMerging = false
@@ -196,6 +223,8 @@ func (db *DB) loadMergeFiles() error {
 		if name == data.FileNameMergeFinished {
 			mergeFinished = true
 		} else if name == data.FileNameSeqId {
+			continue
+		} else if name == fileLockName {
 			continue
 		}
 		// 这里包含了 hint file 和 merge finished file

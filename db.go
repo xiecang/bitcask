@@ -4,6 +4,7 @@ import (
 	"bitcask-go/data"
 	"bitcask-go/fio"
 	"bitcask-go/index"
+	"bitcask-go/utils"
 	"errors"
 	"fmt"
 	"io"
@@ -35,7 +36,15 @@ type DB struct {
 	isSeqIdFileNotExit bool                  // 存储事务最大 id 的文件是否不存在
 	fileLock           *flock.Flock          // 文件锁, 防止多个进程同时打开数据库
 	bytesWrite         uint                  // 未执行 sync 前，累计写入的字节数
-	reclaimSize        int64                 // 表示有多少数据是无效的
+	reclaimableSize    int64                 // 可以进行 merge 回收的数据量，单位 byte
+}
+
+// Stat 存储引擎的统计信息
+type Stat struct {
+	KeyNum          uint  // key 的总数量
+	DataFileNum     uint  // 数据文件的数量
+	ReclaimableSize int64 // 可以进行 merge 回收的数据量，单位 byte
+	DiskSize        int64 // 数据目录占用的磁盘空间，单位 byte
 }
 
 func fileLockPath(dirPath string) string {
@@ -94,7 +103,7 @@ func Open(options Options) (*DB, error) {
 		return nil, err
 	}
 
-	// B+ 树不需要从数据文件中加载索引
+	// B+ 树不需要从数据文件中加载索引（当前 B+ 树的实现会自己磁盘上维护索引）
 	if options.IndexType == BPlusTree {
 		// 取出当前事务序列号
 		if err = db.loadSeqId(); err != nil {
@@ -161,7 +170,7 @@ func (db *DB) Put(key []byte, value []byte) error {
 	}
 	// 更新内存索引
 	if oldPos := db.index.Put(key, pos); oldPos != nil {
-		db.reclaimSize += int64(oldPos.Size)
+		db.reclaimableSize += int64(oldPos.Size)
 	}
 	return nil
 }
@@ -353,7 +362,7 @@ func (db *DB) Delete(key []byte) error {
 	if err != nil {
 		return err
 	}
-	db.reclaimSize += int64(pos.Size)
+	db.reclaimableSize += int64(pos.Size)
 
 	// 从内存索引中将对应的 key 删除
 	oldPos, ok := db.index.Delete(key)
@@ -361,9 +370,30 @@ func (db *DB) Delete(key []byte) error {
 		return ErrIndexUpdateFailed
 	}
 	if oldPos != nil {
-		db.reclaimSize += int64(oldPos.Size)
+		db.reclaimableSize += int64(oldPos.Size)
 	}
 	return nil
+}
+
+// Stat 返回数据库的统计信息
+func (db *DB) Stat() *Stat {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	var fileNum = uint(len(db.olderFiles))
+	if db.activeFile != nil {
+		fileNum++
+	}
+	diskSize, err := utils.DirSize(db.options.DirPath)
+	if err != nil {
+		panic(fmt.Sprintf("get dir size failed: %v", err))
+	}
+	return &Stat{
+		KeyNum:          uint(db.index.Size()),
+		DataFileNum:     fileNum,
+		ReclaimableSize: db.reclaimableSize,
+		DiskSize:        diskSize,
+	}
 }
 
 func (db *DB) shouldSync() bool {
@@ -423,6 +453,7 @@ func (db *DB) appendLogRecord(record *data.LogRecord) (*data.LogRecordPos, error
 	pos := &data.LogRecordPos{
 		Fid:    db.activeFile.Id,
 		Offset: writeOffset,
+		Size:   uint32(size),
 	}
 	return pos, nil
 }
@@ -505,12 +536,12 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 		var oldPos *data.LogRecordPos
 		if tp == data.LogRecordTypeDelete {
 			oldPos, _ = db.index.Delete(key)
-			db.reclaimSize += int64(pos.Size)
+			db.reclaimableSize += int64(pos.Size)
 		} else {
 			oldPos = db.index.Put(key, pos)
 		}
 		if oldPos != nil {
-			db.reclaimSize += int64(oldPos.Size)
+			db.reclaimableSize += int64(oldPos.Size)
 		}
 	}
 
@@ -609,6 +640,9 @@ func checkOptions(options *Options) error {
 	}
 	if options.MaxFileSize <= 0 {
 		return errors.New("database data file must be greater than 0")
+	}
+	if options.DataFileMergeThreshold < 0 || options.DataFileMergeThreshold > 1 {
+		return errors.New("database data file merge threshold must be between 0 and 1")
 	}
 	return nil
 }

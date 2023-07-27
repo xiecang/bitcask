@@ -140,7 +140,7 @@ func (w *WriteBatch) Commit() error {
 			oldPos = w.db.index.Put(record.Key, pos)
 		}
 		if oldPos != nil {
-			w.db.reclaimSize += int64(oldPos.Size)
+			w.db.reclaimableSize += int64(oldPos.Size)
 		}
 	}
 

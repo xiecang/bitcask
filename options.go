@@ -12,6 +12,8 @@ type Options struct {
 	IndexType IndexType // 索引类型
 
 	MMapAtStartup bool // 是否在启动时将索引文件映射到内存当中
+
+	DataFileMergeThreshold float32 // 数据文件合并阈值, 无效数据文件占总数据文件大小的比例超过该阈值时触发合并
 }
 
 type IteratorOption struct {
