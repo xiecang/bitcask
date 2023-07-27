@@ -30,7 +30,7 @@ func TestFile_Close(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
+			f, err := OpenFile(tt.fields.dirPath, tt.fields.id, fio.FIOStandar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -139,7 +139,7 @@ func TestFile_ReadLogRecord(t *testing.T) {
 					t.Errorf("CleanDBFile() error = %v", err)
 				}
 			}()
-			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
+			f, err := OpenFile(tt.fields.dirPath, tt.fields.id, fio.FIOStandar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -206,7 +206,7 @@ func TestFile_Sync(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
+			f, err := OpenFile(tt.fields.dirPath, tt.fields.id, fio.FIOStandar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -245,7 +245,7 @@ func TestFile_Write(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
+			f, err := OpenFile(tt.fields.dirPath, tt.fields.id, fio.FIOStandar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -297,7 +297,7 @@ func TestFile_readNBytes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			_ = CleanDBFile(tt.fields.dirPath)
-			f, err := OpenFile(tt.fields.dirPath, tt.fields.id)
+			f, err := OpenFile(tt.fields.dirPath, tt.fields.id, fio.FIOStandar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -349,7 +349,7 @@ func TestOpenFile(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := OpenFile(tt.args.dirPath, tt.args.fileId)
+			got, err := OpenFile(tt.args.dirPath, tt.args.fileId, fio.FIOStandar)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("OpenFile() error = %v, wantErr %v", err, tt.wantErr)
 				return

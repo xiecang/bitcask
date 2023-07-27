@@ -48,8 +48,8 @@ func GetFilePath(dirPath string, fileId uint32) string {
 	return p
 }
 
-func newFile(fileName string, fileId uint32) (*File, error) {
-	ioManager, err := fio.NewIOManager(fileName)
+func newFile(fileName string, fileId uint32, ioType fio.FileIOType) (*File, error) {
+	ioManager, err := fio.NewIOManager(fileName, ioType)
 	if err != nil {
 		return nil, err
 	}
@@ -61,9 +61,9 @@ func newFile(fileName string, fileId uint32) (*File, error) {
 }
 
 // OpenFile 打开数据文件
-func OpenFile(dirPath string, fileId uint32) (*File, error) {
+func OpenFile(dirPath string, fileId uint32, ioType fio.FileIOType) (*File, error) {
 	p := GetFilePath(dirPath, fileId)
-	return newFile(p, fileId)
+	return newFile(p, fileId, ioType)
 }
 
 func GetHintFileName(dirPath string) string {
@@ -74,7 +74,7 @@ func GetHintFileName(dirPath string) string {
 // OpenHintFile 打开 Hint 索引文件
 func OpenHintFile(dirPath string) (*File, error) {
 	p := GetHintFileName(dirPath)
-	return newFile(p, 0)
+	return newFile(p, 0, fio.FIOStandar)
 }
 
 func mergeFinishedFileName(dirPath string) string {
@@ -85,7 +85,7 @@ func mergeFinishedFileName(dirPath string) string {
 // OpenMergeFinishedFile 打开 Merge 完成标识文件
 func OpenMergeFinishedFile(dirPath string) (*File, error) {
 	p := mergeFinishedFileName(dirPath)
-	return newFile(p, 0)
+	return newFile(p, 0, fio.FIOStandar)
 }
 
 func seqIdFileName(dirPath string) string {
@@ -104,7 +104,7 @@ func IsSeqIdFileNotExit(dirPath string) bool {
 // OpenSeqIdFile 打开存储事务序列号的文件
 func OpenSeqIdFile(dirPath string) (*File, error) {
 	p := seqIdFileName(dirPath)
-	return newFile(p, 0)
+	return newFile(p, 0, fio.FIOStandar)
 }
 
 // ReadLogRecord 根据 offset 读取 LogRecord
@@ -194,6 +194,17 @@ func (f *File) readNBytes(n int64, offset int64) ([]byte, error) {
 	return b, err
 }
 
+func (f *File) SetIOManager(dirPath string, ioType fio.FileIOType) error {
+	if err := f.IOManager.Close(); err != nil {
+		return err
+	}
+	ioManager, err := fio.NewIOManager(GetFilePath(dirPath, f.Id), ioType)
+	if err != nil {
+		return err
+	}
+	f.IOManager = ioManager
+	return nil
+}
 func CleanDBFile(path string) error {
 	//err := filepath.Walk(path, func(path string, info os.FileInfo, err error) error {
 	//	if err != nil {

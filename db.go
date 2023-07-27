@@ -2,17 +2,25 @@ package bitcask_go
 
 import (
 	"bitcask-go/data"
+	"bitcask-go/fio"
 	"bitcask-go/index"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/gofrs/flock"
 )
 
-const seqIdKey = "seq.id"
+const (
+	seqIdKey     = "seq.id"
+	fileLockName = "bitcask.lock"
+)
 
 // DB bitcask 存储引擎
 type DB struct {
@@ -25,6 +33,12 @@ type DB struct {
 	isMerging          bool                  // 是否正在合并数据文件
 	isInitial          bool                  // 是否已经初始化
 	isSeqIdFileNotExit bool                  // 存储事务最大id的文件是否不存在
+	fileLock           *flock.Flock          // 文件锁, 防止多个进程同时打开数据库
+	bytesWrite         uint                  // 未执行 sync 前，累计写入的字节数
+}
+
+func fileLockPath(dirPath string) string {
+	return filepath.Join(dirPath, fileLockName)
 }
 
 // Open 打开 bitcask 数据库存储引擎
@@ -41,6 +55,15 @@ func Open(options Options) (*DB, error) {
 		}
 		isInitial = true
 	}
+
+	// 判断当前文件是否在正在使用
+	fileLock := flock.New(fileLockPath(options.DirPath))
+	if hold, err := fileLock.TryLock(); err != nil {
+		return nil, err
+	} else if !hold {
+		return nil, ErrDatabaseIsUsing
+	}
+
 	if entries, err := os.ReadDir(options.DirPath); err != nil {
 		return nil, err
 	} else if len(entries) == 0 {
@@ -53,6 +76,7 @@ func Open(options Options) (*DB, error) {
 		olderFiles: make(map[uint32]*data.File),
 		index:      index.NewIndexer(options.IndexType, options.DirPath, options.SyncWrites),
 		isInitial:  isInitial,
+		fileLock:   fileLock,
 	}
 
 	// 加载 merge 数据目录
@@ -106,6 +130,13 @@ func Open(options Options) (*DB, error) {
 		// 从数据文件中加载索引
 		if err = db.loadIndexFromDataFiles(fileIds); err != nil {
 			return nil, err
+		}
+
+		// 重置 io 类型为标准文件 IO (如果实现了 mmap 的 write 和 sync 方法的话，也可不重置)
+		if db.options.MMapAtStartup {
+			if err = db.resetIOType(); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -255,6 +286,11 @@ func (db *DB) loadSeqId() error {
 
 // Close 关闭数据库
 func (db *DB) Close() error {
+	defer func() {
+		if err := db.fileLock.Unlock(); err != nil {
+			panic(fmt.Sprintf("unlock file lock failed: %s", err))
+		}
+	}()
 	if db.activeFile == nil {
 		return nil
 	}
@@ -324,6 +360,14 @@ func (db *DB) Delete(key []byte) error {
 	return nil
 }
 
+func (db *DB) shouldSync() bool {
+	var needSync = db.options.SyncWrites
+	if !needSync && db.options.BytesPreSync > 0 && db.bytesWrite > db.options.BytesPreSync {
+		needSync = true
+	}
+	return needSync
+}
+
 // appendLogRecord 追加写数据到活跃数据文件中
 func (db *DB) appendLogRecord(record *data.LogRecord) (*data.LogRecordPos, error) {
 
@@ -357,9 +401,15 @@ func (db *DB) appendLogRecord(record *data.LogRecord) (*data.LogRecordPos, error
 		return nil, err
 	}
 
-	if db.options.SyncWrites {
+	db.bytesWrite += uint(size)
+	if db.shouldSync() {
 		if err := db.activeFile.Sync(); err != nil {
 			return nil, err
+		}
+
+		// 清空累计写入值
+		if db.bytesWrite > 0 {
+			db.bytesWrite = 0
 		}
 	}
 
@@ -386,7 +436,7 @@ func (db *DB) setActivateDataFile() error {
 		initialFileId = db.activeFile.Id + 1
 	}
 	// 打开新的数据文件
-	file, err := data.OpenFile(db.options.DirPath, initialFileId)
+	file, err := data.OpenFile(db.options.DirPath, initialFileId, fio.FIOStandar)
 	if err != nil {
 		return err
 	}
@@ -419,7 +469,11 @@ func (db *DB) loadDataFiles() ([]int, error) {
 
 	// 遍历文件 Id，加载数据文件
 	for i, fileId := range fileIds {
-		file, err := data.OpenFile(db.options.DirPath, uint32(fileId))
+		ioType := fio.FIOStandar
+		if db.options.MMapAtStartup {
+			ioType = fio.FIOMemoryMap
+		}
+		file, err := data.OpenFile(db.options.DirPath, uint32(fileId), ioType)
 		if err != nil {
 			return nil, err
 		}
@@ -520,6 +574,24 @@ func (db *DB) loadIndexFromDataFiles(fileIds []int) error {
 
 	// 更新当前事务序列号
 	db.seqId = currentTransactionId
+	return nil
+}
+
+// resetIOType 将数据文件的 io 类型重置为标准文件 IO
+func (db *DB) resetIOType() error {
+	if db.activeFile == nil {
+		return nil
+	}
+
+	if err := db.activeFile.SetIOManager(db.options.DirPath, fio.FIOStandar); err != nil {
+		return err
+	}
+
+	for _, file := range db.olderFiles {
+		if err := file.SetIOManager(db.options.DirPath, fio.FIOStandar); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
