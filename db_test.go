@@ -12,12 +12,12 @@ import (
 	"testing"
 )
 
-var indexTypesForTest = []IndexType{Btree, BPlusTree, ART}
+var indexTypesForTest = []IndexType{BTree, BPlusTree, ART}
 
 func indexTypeString(t IndexType) string {
 	switch t {
-	case Btree:
-		return "Btree"
+	case BTree:
+		return "BTree"
 	case ART:
 		return "ART"
 	case BPlusTree:

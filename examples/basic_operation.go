@@ -10,7 +10,7 @@ func main() {
 		DirPath:     "/tmp/bitcask-go",
 		MaxFileSize: 256 * 1024 * 1024,
 		SyncWrites:  false,
-		IndexType:   bitcask.Btree,
+		IndexType:   bitcask.BTree,
 	}
 	db, err := bitcask.Open(options)
 	if err != nil {

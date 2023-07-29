@@ -13,7 +13,7 @@ func defaultOptions() Options {
 		DirPath:     filepath.Join(os.TempDir(), "bitcask-go"),
 		MaxFileSize: 1 * 1024 * 1024,
 		SyncWrites:  false,
-		IndexType:   Btree,
+		IndexType:   BTree,
 	}
 }
 func defaultIteratorOption() *IteratorOption {

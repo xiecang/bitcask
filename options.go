@@ -1,5 +1,10 @@
 package bitcask_go
 
+import (
+	"os"
+	"path/filepath"
+)
+
 type Options struct {
 	DirPath string // 数据库数据目录
 
@@ -7,7 +12,7 @@ type Options struct {
 
 	SyncWrites bool // 是否同步写入，true 时每次写入都会持久化到磁盘当中
 
-	BytesPreSync uint // 每写入指定字节数后同步到磁盘
+	BytesPerSync uint // 每写入指定字节数后同步到磁盘
 
 	IndexType IndexType // 索引类型
 
@@ -30,7 +35,19 @@ type WriteBatchOption struct {
 type IndexType = int8
 
 const (
-	Btree     IndexType = iota + 1 // B+ 树索引
+	BTree     IndexType = iota + 1 // B+ 树索引
 	ART                            // Adaptive Radix Tree 自适应基数树索引
 	BPlusTree                      // B+ 树索引, 将索引数据存储在磁盘当中
 )
+
+func DefaultOptions() Options {
+	return Options{
+		DirPath:                filepath.Join(os.TempDir(), "bitcask-go"),
+		MaxFileSize:            256 * 1024 * 1024, // 256MB
+		SyncWrites:             false,
+		BytesPerSync:           0,
+		IndexType:              BTree,
+		MMapAtStartup:          true,
+		DataFileMergeThreshold: 0.5,
+	}
+}

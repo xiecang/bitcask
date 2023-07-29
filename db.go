@@ -408,7 +408,7 @@ func (db *DB) Backup(dir string) error {
 
 func (db *DB) shouldSync() bool {
 	var needSync = db.options.SyncWrites
-	if !needSync && db.options.BytesPreSync > 0 && db.bytesWrite > db.options.BytesPreSync {
+	if !needSync && db.options.BytesPerSync > 0 && db.bytesWrite > db.options.BytesPerSync {
 		needSync = true
 	}
 	return needSync
