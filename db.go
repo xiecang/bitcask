@@ -396,6 +396,14 @@ func (db *DB) Stat() *Stat {
 	}
 }
 
+// Backup 备份数据库, 将数据库文件拷贝到新目录
+func (db *DB) Backup(dir string) error {
+	db.mu.RLock()
+	defer db.mu.RUnlock()
+
+	return utils.CopyDir(db.options.DirPath, dir, []string{fileLockName})
+}
+
 func (db *DB) shouldSync() bool {
 	var needSync = db.options.SyncWrites
 	if !needSync && db.options.BytesPreSync > 0 && db.bytesWrite > db.options.BytesPreSync {
