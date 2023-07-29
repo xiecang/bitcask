@@ -202,7 +202,7 @@ func (db *DB) getNonMergeFileId(dirPath string) (uint32, error) {
 func (db *DB) loadMergeFiles() error {
 	var mergePath = db.getMergePath()
 	if _, err := os.Stat(mergePath); os.IsNotExist(err) {
-		return err
+		return nil
 	}
 	//
 	defer func() {

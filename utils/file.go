@@ -2,6 +2,7 @@ package utils
 
 import (
 	"os"
+	gopath "path"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -37,16 +38,29 @@ func AvailableDiskSpace() (size uint64, err error) {
 func CopyDir(src, dest string, exclude []string) error {
 	// 目标文件夹不存在则创建
 	if _, err := os.Stat(dest); os.IsNotExist(err) {
-		if err := os.MkdirAll(dest, os.ModePerm); err != nil {
+		if err = os.MkdirAll(dest, os.ModePerm); err != nil {
 			return err
 		}
 	}
+	src = filepath.Clean(src)
 
-	err := filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
-		filename := strings.Replace(path, src, "", 1)
-		if filename == "" {
+	// 比较两个路径是否相同，相同则无需拷贝
+	var err error
+	src, err = filepath.EvalSymlinks(src)
+	dest, err = filepath.EvalSymlinks(dest)
+	if err != nil {
+		return err
+	}
+
+	if strings.Compare(src, dest) == 0 {
+		return nil
+	}
+	err = filepath.Walk(src, func(path string, info os.FileInfo, err error) error {
+		if strings.Compare(path, src) == 0 {
+			// 跳过源目录
 			return nil
 		}
+		filename := gopath.Base(path)
 
 		for _, e := range exclude {
 			matched, err := filepath.Match(e, info.Name())

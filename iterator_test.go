@@ -2,14 +2,16 @@ package bitcask_go
 
 import (
 	"bitcask-go/data"
+	"os"
+	"path/filepath"
 	"reflect"
 	"testing"
 )
 
 func defaultOptions() Options {
 	return Options{
-		DirPath:     "/tmp/bitcask-go",
-		MaxFileSize: 256 * 1024 * 1024,
+		DirPath:     filepath.Join(os.TempDir(), "bitcask-go"),
+		MaxFileSize: 1 * 1024 * 1024,
 		SyncWrites:  false,
 		IndexType:   Btree,
 	}
@@ -24,7 +26,7 @@ func defaultIteratorOption() *IteratorOption {
 func destroyDB(db *DB) {
 	if db != nil {
 		_ = db.Close()
-		err := data.CleanDBFile(db.options.DirPath)
+		err := os.RemoveAll(db.options.DirPath)
 		if err != nil {
 			panic(err)
 		}

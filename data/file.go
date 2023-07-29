@@ -77,14 +77,14 @@ func OpenHintFile(dirPath string) (*File, error) {
 	return newFile(p, 0, fio.FIOStandar)
 }
 
-func mergeFinishedFileName(dirPath string) string {
+func MergeFinishedFileName(dirPath string) string {
 	p := filepath.Join(dirPath, FileNameMergeFinished)
 	return p
 }
 
 // OpenMergeFinishedFile 打开 Merge 完成标识文件
 func OpenMergeFinishedFile(dirPath string) (*File, error) {
-	p := mergeFinishedFileName(dirPath)
+	p := MergeFinishedFileName(dirPath)
 	return newFile(p, 0, fio.FIOStandar)
 }
 

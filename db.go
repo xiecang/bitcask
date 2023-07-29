@@ -122,19 +122,21 @@ func Open(options Options) (*DB, error) {
 			return nil, err
 		} else {
 			// 跳过 hint 文件中加载过的 id
-			var nonMergeFileId, err = db.getNonMergeFileId(db.options.DirPath)
-			if err != nil {
-				return nil, err
-			}
-			var newFileIds []int
-			for _, id := range fileIds {
-				if id < int(nonMergeFileId) {
-					// 小于 nonMergeFileId 的数据记录，均在 hint 文件加载过了
-					continue
+			if _, err = os.Stat(data.MergeFinishedFileName(db.options.DirPath)); err == nil {
+				var nonMergeFileId, err = db.getNonMergeFileId(db.options.DirPath)
+				if err != nil {
+					return nil, err
 				}
-				newFileIds = append(newFileIds, id)
+				var newFileIds []int
+				for _, id := range fileIds {
+					if id < int(nonMergeFileId) {
+						// 小于 nonMergeFileId 的数据记录，均在 hint 文件加载过了
+						continue
+					}
+					newFileIds = append(newFileIds, id)
+				}
+				fileIds = newFileIds
 			}
-			fileIds = newFileIds
 		}
 
 		// 从数据文件中加载索引
