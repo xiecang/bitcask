@@ -362,6 +362,13 @@ func TestDB_Backup(t *testing.T) {
 					t.Errorf("Backup() error = %v, wantErr %v", err, tt.wantErr)
 				}
 
+				defer func() {
+					err = os.RemoveAll(tt.args.dir)
+					if err != nil {
+						t.Errorf("remove backup dir error: %v", err)
+					}
+				}()
+
 				// check backup files
 				err = filepath.Walk(tt.fields.options.DirPath, func(path string, info os.FileInfo, err error) error {
 					if strings.Compare(path, tt.fields.options.DirPath) == 0 {

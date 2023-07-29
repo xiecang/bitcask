@@ -227,7 +227,7 @@ func (db *DB) loadMergeFiles() error {
 		} else if name == fileLockName {
 			continue
 		}
-		// 这里包含了 hint file 和 merge finished file
+		// 这里包含了 hint file、merge finished file、data file
 		mergeFileNames = append(mergeFileNames, name)
 	}
 
@@ -244,7 +244,7 @@ func (db *DB) loadMergeFiles() error {
 	// 删除旧的数据文件
 	var fileId uint32 = 0
 	for ; fileId < nonMergeFileId; fileId++ {
-		filePath := data.GetFilePath(mergePath, fileId)
+		filePath := data.GetFilePath(db.options.DirPath, fileId)
 		if _, err = os.Stat(filePath); err == nil {
 			if err = os.Remove(filePath); err != nil {
 				return err
@@ -257,8 +257,8 @@ func (db *DB) loadMergeFiles() error {
 		// /tmp/bitcask-merge/0000.data  ==>  /tmp/bitcask/0000.data
 
 		srcPath := path.Join(mergePath, fileName)
-		dstPath := path.Join(db.options.DirPath, fileName)
-		if err = os.Rename(srcPath, dstPath); err != nil {
+		destPath := path.Join(db.options.DirPath, fileName)
+		if err = os.Rename(srcPath, destPath); err != nil {
 			return err
 		}
 	}
