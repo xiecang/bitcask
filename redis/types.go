@@ -81,3 +81,141 @@ func (d *DataStructure) Get(key []byte) ([]byte, error) {
 	}
 	return encodeValue[index:], nil
 }
+
+// ================================ Hash 数据结构 ============================
+
+// findMetadata 查找元数据, 如果不存在/过期则创建，如果存在但类型不匹配则返回错误
+func (d *DataStructure) findMetadata(key []byte, dataType DataType) (*metadata, error) {
+	metaBuf, err := d.db.Get(key)
+	if err != nil && !errors.Is(err, bitcask.ErrKeyNotFound) {
+		return nil, err
+	}
+
+	var meta *metadata
+	var exist = true
+	if errors.Is(err, bitcask.ErrKeyNotFound) {
+		exist = false
+	} else {
+		meta = decodeMetadata(metaBuf)
+
+		//
+		if meta.dataType != dataType {
+			return nil, ErrWrongTypeOperation
+		}
+
+		//
+		if meta.expire != 0 && meta.expire <= time.Now().UnixNano() {
+			exist = false
+		}
+	}
+
+	if !exist {
+		meta = &metadata{
+			dataType: dataType,
+			expire:   0,
+			version:  time.Now().UnixNano(),
+			size:     0,
+		}
+		if dataType == List {
+			meta.head = initialListMark
+			meta.tail = initialListMark
+		}
+	}
+	return meta, nil
+}
+
+func (d *DataStructure) HSet(key, field, value []byte) (bool, error) {
+	if len(key) == 0 {
+		// redis 本身是支持 key 为空的
+		// 但是当前 bitcask 实现不支持 Get 空 key, 所以暂不支持 HSet 空 key
+		return false, errors.New("key or field is nil")
+	}
+	meta, err := d.findMetadata(key, Hash)
+	if err != nil {
+		return false, err
+	}
+
+	// 构造 Hash 数据部分的 key
+	hkey := &hashInternalKey{
+		key:     key,
+		version: meta.version,
+		filed:   field,
+	}
+
+	encodedKey := hkey.encode()
+
+	// 先查找是否存在
+	var exist = true
+	if _, err = d.db.Get(encodedKey); errors.Is(err, bitcask.ErrKeyNotFound) {
+		exist = false
+	}
+
+	wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+	// 不存在则更新元数据
+	if !exist {
+		meta.size++
+		_ = wb.Put(key, meta.encode())
+	}
+	_ = wb.Put(encodedKey, value)
+	if err = wb.Commit(); err != nil {
+		return false, err
+	}
+	return !exist, nil
+}
+
+func (d *DataStructure) HGet(key, field []byte) ([]byte, error) {
+	meta, err := d.findMetadata(key, Hash)
+	if err != nil {
+		return nil, err
+	}
+	if meta.size == 0 {
+		return nil, err
+	}
+
+	//
+	hkey := &hashInternalKey{
+		key:     key,
+		version: meta.version,
+		filed:   field,
+	}
+
+	value, err := d.db.Get(hkey.encode())
+	if errors.Is(err, bitcask.ErrKeyNotFound) {
+		// redis 中 hash 不存在的 field 返回 nil
+		return nil, nil
+	}
+	return value, err
+}
+
+func (d *DataStructure) HDel(key, field []byte) (bool, error) {
+	meta, err := d.findMetadata(key, Hash)
+	if err != nil {
+		return false, err
+	}
+	if meta.size == 0 {
+		return false, err
+	}
+	//
+	hkey := &hashInternalKey{
+		key:     key,
+		version: meta.version,
+		filed:   field,
+	}
+
+	encodeKey := hkey.encode()
+
+	var exist = true
+	if _, err = d.db.Get(encodeKey); errors.Is(err, bitcask.ErrKeyNotFound) {
+		exist = false
+	}
+	if exist {
+		wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+		meta.size--
+		_ = wb.Put(key, meta.encode())
+		_ = wb.Delete(encodeKey)
+		if err = wb.Commit(); err != nil {
+			return false, err
+		}
+	}
+	return exist, nil
+}

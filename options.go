@@ -49,3 +49,8 @@ var DefaultOptions = Options{
 	MMapAtStartup:          true,
 	DataFileMergeThreshold: 0.5,
 }
+
+var DefaultWriteBatchOptions = WriteBatchOption{
+	MaxBatchSize: 10000,
+	SyncWrites:   true,
+}
