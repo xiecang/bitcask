@@ -303,14 +303,15 @@ func (db *DB) Close() error {
 			panic(fmt.Sprintf("unlock file lock failed: %s", err))
 		}
 	}()
-	if db.activeFile == nil {
-		return nil
-	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
 
 	if err := db.index.Close(); err != nil {
 		return err
+	}
+
+	if db.activeFile == nil {
+		return nil
 	}
 
 	// 保存当前事务序列号

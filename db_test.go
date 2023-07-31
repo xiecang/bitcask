@@ -193,7 +193,16 @@ func TestDB_Close(t *testing.T) {
 				},
 			},
 			wantErr: false,
-		}}
+		},
+		{
+			name: "empty",
+			fields: fields{
+				options: defaultOptions(),
+				values:  []data.LogRecord{},
+			},
+			wantErr: false,
+		},
+	}
 	for _, tt := range tests {
 		for _, indexType := range indexTypesForTest {
 			name := fmt.Sprintf("%s-indexTYpe_%s", tt.name, indexTypeString(indexType))
@@ -216,9 +225,16 @@ func TestDB_Close(t *testing.T) {
 					t.Errorf("Open db error, err: %v", err)
 					return
 				}
-				if err := db.Close(); (err != nil) != tt.wantErr {
+				if err = db.Close(); (err != nil) != tt.wantErr {
 					t.Errorf("Close() error = %v, wantErr %v", err, tt.wantErr)
 				}
+				// 重新打开数据库
+				db, err = Open(options)
+				if (err != nil) != tt.wantErr {
+					t.Errorf("Open() error = %v, wantErr %v", err, tt.wantErr)
+					return
+				}
+				defer destroyDB(db)
 			})
 		}
 	}
@@ -859,6 +875,28 @@ func TestDB_Put(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		{
+			name: "put empty key",
+			fields: fields{
+				options: defaultOptions(),
+			},
+			args: args{
+				key:   []byte(""),
+				value: []byte("value"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "put empty value",
+			fields: fields{
+				options: defaultOptions(),
+			},
+			args: args{
+				key:   []byte("key"),
+				value: []byte(""),
+			},
+			wantErr: false,
+		},
 	}
 	for _, tt := range tests {
 		for _, indexType := range indexTypesForTest {
@@ -904,12 +942,14 @@ func TestDB_Put(t *testing.T) {
 					return
 				}
 				got, err := db.Get(tt.args.key)
-				if err != nil {
+				if (err != nil) != tt.wantErr {
 					t.Errorf("Get() error = %v, wantErr %v", err, tt.wantErr)
 					return
 				}
-				if !reflect.DeepEqual(got, tt.args.value) {
-					t.Errorf("Get() got = %v, want %v", got, tt.args.value)
+				if err == nil {
+					if !reflect.DeepEqual(got, tt.args.value) {
+						t.Errorf("Get() got = %v, want %v", got, tt.args.value)
+					}
 				}
 				// 重新 put
 				if err = db.Put(tt.args.key, tt.args.value); (err != nil) != tt.wantErr {
