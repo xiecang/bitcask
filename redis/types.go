@@ -219,3 +219,99 @@ func (d *DataStructure) HDel(key, field []byte) (bool, error) {
 	}
 	return exist, nil
 }
+
+// ================================ Set 数据结构 ============================
+
+func (d *DataStructure) SAdd(key []byte, members ...[]byte) (int64, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, Set)
+	if err != nil {
+		return 0, err
+	}
+
+	var count int64
+
+	for _, member := range members {
+		// 构造 Set 数据部分的 key
+		skey := &setInternalKey{
+			key:     key,
+			version: meta.version,
+			member:  member,
+		}
+		if _, err = d.db.Get(skey.encode()); errors.Is(err, bitcask.ErrKeyNotFound) {
+			// 不存在则更新元数据
+			meta.size++
+			wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+
+			_ = wb.Put(key, meta.encode())
+			_ = wb.Put(skey.encode(), nil)
+			if err = wb.Commit(); err != nil {
+				return 0, err
+			}
+			count++
+		}
+
+	}
+
+	return count, nil
+
+}
+
+func (d *DataStructure) SIsMember(key []byte, member []byte) (bool, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, Set)
+	if err != nil {
+		return false, err
+	}
+
+	if meta.size == 0 {
+		return false, nil
+	}
+
+	// 构造 Set 数据部分的 key
+	skey := &setInternalKey{
+		key:     key,
+		version: meta.version,
+		member:  member,
+	}
+
+	_, err = d.db.Get(skey.encode())
+	if errors.Is(err, bitcask.ErrKeyNotFound) {
+		return false, nil
+	}
+	return true, err
+}
+func (d *DataStructure) SRem(key []byte, member []byte) (bool, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, Set)
+	if err != nil {
+		return false, err
+	}
+
+	if meta.size == 0 {
+		return false, nil
+	}
+
+	// 构造 Set 数据部分的 key
+	skey := &setInternalKey{
+		key:     key,
+		version: meta.version,
+		member:  member,
+	}
+
+	encodeKey := skey.encode()
+
+	if _, err = d.db.Get(encodeKey); errors.Is(err, bitcask.ErrKeyNotFound) {
+		return false, nil
+	}
+
+	//
+	wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+	meta.size--
+	_ = wb.Put(key, meta.encode())
+	_ = wb.Delete(encodeKey)
+	if err = wb.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}

@@ -672,3 +672,369 @@ func TestDataStructure_HSet(t *testing.T) {
 		})
 	}
 }
+
+func TestDataStructure_SAdd(t *testing.T) {
+	type kv struct {
+		key     []byte
+		members [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key     []byte
+		members [][]byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:     []byte("key"),
+				members: [][]byte{[]byte("member1"), []byte("member2")},
+			},
+			want:    2,
+			wantErr: false,
+		},
+		{
+			name: "same member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("member2")},
+					},
+				},
+			},
+			args: args{
+				key:     []byte("key"),
+				members: [][]byte{[]byte("member1"), []byte("member2")},
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:     []byte(""),
+				members: [][]byte{[]byte("member1"), []byte("member2")},
+			},
+			want:    0,
+			wantErr: true,
+		},
+		{
+			name: "empty member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:     []byte("key"),
+				members: [][]byte{[]byte(""), []byte("member2")},
+			},
+			want:    2,
+			wantErr: false,
+		},
+		{
+			name: "duplicate member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:     []byte("key"),
+				members: [][]byte{[]byte("member1"), []byte("member1")},
+			},
+			want:    1,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.SAdd(value.key, value.members...)
+				if err != nil {
+					t.Errorf("SAdd() error = %v", err)
+					return
+				}
+			}
+			got, err := d.SAdd(tt.args.key, tt.args.members...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SAdd() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("SAdd() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDataStructure_SIsMember(t *testing.T) {
+	type kv struct {
+		key     []byte
+		members [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key    []byte
+		member []byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("member2")},
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member1"),
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "not exist member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("member2")},
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member3"),
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte(""),
+				member: []byte("member1"),
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "empty member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte(""),
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "not exist key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member1"),
+			},
+			want:    false,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.SAdd(value.key, value.members...)
+				if err != nil {
+					t.Errorf("SAdd() error = %v", err)
+					return
+				}
+			}
+			got, err := d.SIsMember(tt.args.key, tt.args.member)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SIsMember() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("SIsMember() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDataStructure_SRem(t *testing.T) {
+	type kv struct {
+		key     []byte
+		members [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key    []byte
+		member []byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("member2")},
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member1"),
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "not exist member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("member2")},
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member3"),
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte(""),
+				member: []byte("member1"),
+			},
+			want:    false,
+			wantErr: true,
+		},
+		{
+			name: "empty member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("member2")},
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte(""),
+			},
+			want:    false,
+			wantErr: false,
+		},
+		{
+			name: "empty member delete success",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:     []byte("key"),
+						members: [][]byte{[]byte("member1"), []byte("")},
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte(""),
+			},
+			want:    true,
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.SAdd(value.key, value.members...)
+				if err != nil {
+					t.Errorf("SAdd() error = %v", err)
+					return
+				}
+			}
+			got, err := d.SRem(tt.args.key, tt.args.member)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("SRem() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("SRem() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
