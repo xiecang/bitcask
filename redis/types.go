@@ -504,3 +504,7 @@ func (d *DataStructure) ZScore(key []byte, member []byte) (float64, error) {
 		return utils.FloatFromByte(value)
 	}
 }
+
+func (d *DataStructure) Close() error {
+	return d.db.Close()
+}
