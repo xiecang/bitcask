@@ -1482,3 +1482,254 @@ func TestDataStructure_RPush(t *testing.T) {
 		})
 	}
 }
+
+func TestDataStructure_ZAdd(t *testing.T) {
+	type kv struct {
+		key    []byte
+		member []byte
+		score  float64
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key    []byte
+		score  float64
+		member []byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    bool
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				score:  1,
+				member: []byte("member"),
+			},
+			want:    true,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte(""),
+				score:  1,
+				member: []byte("member"),
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				score:  1,
+				member: []byte(""),
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "zero score",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				score:  0,
+				member: []byte("member"),
+			},
+			wantErr: false,
+			want:    true,
+		},
+		{
+			name: "exist member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						member: []byte("member"),
+						score:  1,
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				score:  1,
+				member: []byte("member"),
+			},
+			wantErr: false,
+			want:    false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.ZAdd(value.key, value.score, value.member)
+				if err != nil {
+					t.Errorf("ZAdd() error = %v", err)
+					return
+				}
+			}
+			got, err := d.ZAdd(tt.args.key, tt.args.score, tt.args.member)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ZAdd() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ZAdd() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDataStructure_ZScore(t *testing.T) {
+	type kv struct {
+		key    []byte
+		member []byte
+		score  float64
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key    []byte
+		member []byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    float64
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						member: []byte("member"),
+						score:  1,
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member"),
+			},
+			want:    1,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte(""),
+				member: []byte("member"),
+			},
+			wantErr: true,
+			want:    -1,
+		},
+		{
+			name: "empty member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						member: []byte("member"),
+						score:  1,
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte(""),
+			},
+			wantErr: false,
+			want:    -1,
+		},
+		{
+			name: "not exist member",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						member: []byte("member"),
+						score:  1,
+					},
+				},
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member1"),
+			},
+			wantErr: false,
+			want:    -1,
+		},
+		{
+			name: "not exist key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				member: []byte("member"),
+			},
+			wantErr: false,
+			want:    -1,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.ZAdd(value.key, value.score, value.member)
+				if err != nil {
+					t.Errorf("ZAdd() error = %v", err)
+					return
+				}
+			}
+			got, err := d.ZScore(tt.args.key, tt.args.member)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ZScore() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("ZScore() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

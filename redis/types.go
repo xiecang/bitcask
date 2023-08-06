@@ -2,6 +2,7 @@ package redis
 
 import (
 	bitcask "bitcask-go"
+	"bitcask-go/utils"
 	"encoding/binary"
 	"errors"
 	"time"
@@ -148,6 +149,8 @@ func (d *DataStructure) HSet(key, field, value []byte) (bool, error) {
 	var exist = true
 	if _, err = d.db.Get(encodedKey); errors.Is(err, bitcask.ErrKeyNotFound) {
 		exist = false
+	} else if err != nil {
+		return false, err
 	}
 
 	wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
@@ -183,6 +186,8 @@ func (d *DataStructure) HGet(key, field []byte) ([]byte, error) {
 	if errors.Is(err, bitcask.ErrKeyNotFound) {
 		// redis 中 hash 不存在的 field 返回 nil
 		return nil, nil
+	} else if err != nil {
+		return nil, err
 	}
 	return value, err
 }
@@ -207,6 +212,8 @@ func (d *DataStructure) HDel(key, field []byte) (bool, error) {
 	var exist = true
 	if _, err = d.db.Get(encodeKey); errors.Is(err, bitcask.ErrKeyNotFound) {
 		exist = false
+	} else if err != nil {
+		return false, err
 	}
 	if exist {
 		wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
@@ -277,6 +284,8 @@ func (d *DataStructure) SIsMember(key []byte, member []byte) (bool, error) {
 	_, err = d.db.Get(skey.encode())
 	if errors.Is(err, bitcask.ErrKeyNotFound) {
 		return false, nil
+	} else if err != nil {
+		return false, err
 	}
 	return true, err
 }
@@ -302,6 +311,8 @@ func (d *DataStructure) SRem(key []byte, member []byte) (bool, error) {
 
 	if _, err = d.db.Get(encodeKey); errors.Is(err, bitcask.ErrKeyNotFound) {
 		return false, nil
+	} else if err != nil {
+		return false, err
 	}
 
 	//
@@ -409,4 +420,87 @@ func (d *DataStructure) LPop(key []byte) ([]byte, error) {
 
 func (d *DataStructure) RPop(key []byte) ([]byte, error) {
 	return d.popInner(key, false)
+}
+
+// ================================ ZSet 数据结构 ============================
+
+func (d *DataStructure) ZAdd(key []byte, score float64, member []byte) (bool, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, ZSet)
+	if err != nil {
+		return false, err
+	}
+
+	// 构造 ZSet 数据部分的 key
+	zKey := &zsetInternalKey{
+		key:     key,
+		version: meta.version,
+		member:  member,
+		score:   score,
+	}
+
+	// 判断是否存在
+	var exist = true
+	var value []byte
+	if value, err = d.db.Get(zKey.encodeWithMember()); errors.Is(err, bitcask.ErrKeyNotFound) {
+		exist = false
+	} else if err != nil {
+		return false, err
+	}
+	var oldScore float64
+	if exist {
+		// 如果存在，判断 score 是否相同
+		oldScore, _ = utils.FloatFromByte(value)
+		if oldScore == score {
+			return false, nil
+		}
+	}
+
+	// 更新元数据
+	wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+	if !exist {
+		meta.size++
+		_ = wb.Put(key, meta.encode())
+	} else {
+		oldKey := &zsetInternalKey{
+			key:     key,
+			version: meta.version,
+			member:  member,
+			score:   oldScore,
+		}
+		_ = wb.Delete(oldKey.encodeWithMember())
+	}
+	_ = wb.Put(zKey.encodeWithMember(), utils.Float64ToBytes(score))
+	_ = wb.Put(zKey.encodeWithScore(), nil)
+	if err = wb.Commit(); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (d *DataStructure) ZScore(key []byte, member []byte) (float64, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, ZSet)
+	if err != nil {
+		return -1, err
+	}
+
+	if meta.size == 0 {
+		return -1, nil
+	}
+
+	// 构造 ZSet 数据部分的 key
+	zKey := &zsetInternalKey{
+		key:     key,
+		version: meta.version,
+		member:  member,
+	}
+
+	if value, err := d.db.Get(zKey.encodeWithMember()); errors.Is(err, bitcask.ErrKeyNotFound) {
+		return -1, nil
+	} else if err != nil {
+		return -1, err
+	} else {
+		return utils.FloatFromByte(value)
+	}
 }
