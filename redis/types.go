@@ -230,6 +230,7 @@ func (d *DataStructure) SAdd(key []byte, members ...[]byte) (int64, error) {
 	}
 
 	var count int64
+	wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
 
 	for _, member := range members {
 		// 构造 Set 数据部分的 key
@@ -241,16 +242,14 @@ func (d *DataStructure) SAdd(key []byte, members ...[]byte) (int64, error) {
 		if _, err = d.db.Get(skey.encode()); errors.Is(err, bitcask.ErrKeyNotFound) {
 			// 不存在则更新元数据
 			meta.size++
-			wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
 
-			_ = wb.Put(key, meta.encode())
 			_ = wb.Put(skey.encode(), nil)
-			if err = wb.Commit(); err != nil {
-				return 0, err
-			}
 			count++
 		}
-
+		_ = wb.Put(key, meta.encode())
+		if err = wb.Commit(); err != nil {
+			return 0, err
+		}
 	}
 
 	return count, nil
@@ -314,4 +313,100 @@ func (d *DataStructure) SRem(key []byte, member []byte) (bool, error) {
 		return false, err
 	}
 	return true, nil
+}
+
+// ================================ List 数据结构 ============================
+
+func (d *DataStructure) pushInner(key []byte, isLeft bool, values ...[]byte) (int64, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, List)
+	if err != nil {
+		return 0, err
+	}
+
+	var count int64
+
+	wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+	for _, value := range values {
+
+		// 构造 List 数据部分的 key
+		lKey := &listInternalKey{
+			key:     key,
+			version: meta.version,
+		}
+
+		if isLeft {
+			lKey.index = meta.head - 1
+			meta.head--
+		} else {
+			lKey.index = meta.tail
+			meta.tail++
+		}
+
+		// 更新元数据
+		meta.size++
+		_ = wb.Put(lKey.encode(), value)
+		count++
+	}
+	_ = wb.Put(key, meta.encode())
+	if err = wb.Commit(); err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
+func (d *DataStructure) LPush(key []byte, values ...[]byte) (int64, error) {
+	return d.pushInner(key, true, values...)
+}
+
+func (d *DataStructure) RPush(key []byte, values ...[]byte) (int64, error) {
+	return d.pushInner(key, false, values...)
+}
+
+func (d *DataStructure) popInner(key []byte, isLeft bool) ([]byte, error) {
+	// 查找元数据
+	meta, err := d.findMetadata(key, List)
+	if err != nil {
+		return nil, err
+	}
+	if meta.size == 0 {
+		return nil, nil
+	}
+
+	// 构造 List 数据部分的 key
+	lKey := &listInternalKey{
+		key:     key,
+		version: meta.version,
+	}
+
+	if isLeft {
+		lKey.index = meta.head
+		meta.head++
+	} else {
+		lKey.index = meta.tail - 1
+		meta.tail--
+	}
+
+	if element, err := d.db.Get(lKey.encode()); errors.Is(err, bitcask.ErrKeyNotFound) {
+		return nil, nil
+	} else if err != nil {
+		return nil, err
+	} else {
+		wb := d.db.NewWriteBatch(bitcask.DefaultWriteBatchOptions)
+		meta.size--
+		_ = wb.Put(key, meta.encode())
+		_ = wb.Delete(lKey.encode())
+		if err = wb.Commit(); err != nil {
+			return nil, err
+		}
+		return element, nil
+	}
+}
+
+func (d *DataStructure) LPop(key []byte) ([]byte, error) {
+	return d.popInner(key, true)
+}
+
+func (d *DataStructure) RPop(key []byte) ([]byte, error) {
+	return d.popInner(key, false)
 }

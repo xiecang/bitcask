@@ -128,3 +128,29 @@ func (k *setInternalKey) encode() []byte {
 
 	return buf
 }
+
+type listInternalKey struct {
+	key     []byte // key
+	version int64  // 版本，固定长度，占 8 字节
+	index   uint64 // 索引, 8 字节
+}
+
+func (l *listInternalKey) encode() []byte {
+	var size = len(l.key) + 8 + 8
+	buf := make([]byte, size)
+
+	var index = 0
+
+	// key
+	index += copy(buf[index:], l.key)
+
+	// version
+	binary.LittleEndian.PutUint64(buf[index:index+8], uint64(l.version))
+	index += 8
+
+	// index
+	binary.LittleEndian.PutUint64(buf[index:index+8], l.index)
+	index += 8
+
+	return buf
+}

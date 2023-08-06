@@ -1038,3 +1038,447 @@ func TestDataStructure_SRem(t *testing.T) {
 		})
 	}
 }
+
+func TestDataStructure_LPop(t *testing.T) {
+	type kv struct {
+		key    []byte
+		values [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key []byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{[]byte("value1"), []byte("value2")},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			want:    []byte("value2"),
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte(""),
+			},
+			wantErr: true,
+		},
+		{
+			name: "not exist key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty list",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty list delete success",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{[]byte("")},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			wantErr: false,
+			want:    []byte(""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.LPush(value.key, value.values...)
+				if err != nil {
+					t.Errorf("LPush() error = %v", err)
+					return
+				}
+			}
+			got, err := d.LPop(tt.args.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LPop() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("LPop() got = %v, want %v", string(got), string(tt.want))
+			}
+		})
+	}
+}
+
+func TestDataStructure_LPush(t *testing.T) {
+	type kv struct {
+		key    []byte
+		values [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key    []byte
+		values [][]byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{[]byte("value1"), []byte("value2")},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+				values: [][]byte{
+					[]byte("value3"),
+					[]byte("value4"),
+				},
+			},
+			want:    2,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte(""),
+				values: [][]byte{
+					[]byte("value3"),
+					[]byte("value4"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty value",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				values: [][]byte{},
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "not exist key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.LPush(value.key, value.values...)
+				if err != nil {
+					t.Errorf("LPush() error = %v", err)
+					return
+				}
+			}
+			got, err := d.LPush(tt.args.key, tt.args.values...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("LPush() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("LPush() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDataStructure_RPop(t *testing.T) {
+	type kv struct {
+		key    []byte
+		values [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key []byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    []byte
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{[]byte("value1"), []byte("value2")},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			want:    []byte("value1"),
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte(""),
+			},
+			wantErr: true,
+		},
+		{
+			name: "not exist key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty list",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			wantErr: false,
+		},
+		{
+			name: "empty list delete success",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{[]byte("")},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			wantErr: false,
+			want:    []byte(""),
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.LPush(value.key, value.values...)
+				if err != nil {
+					t.Errorf("LPush() error = %v", err)
+					return
+				}
+			}
+			got, err := d.RPop(tt.args.key)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RPop() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("RPop() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestDataStructure_RPush(t *testing.T) {
+	type kv struct {
+		key    []byte
+		values [][]byte
+	}
+	type fields struct {
+		option bitcask.Options
+		values []kv
+	}
+	type args struct {
+		key    []byte
+		values [][]byte
+	}
+	tests := []struct {
+		name    string
+		fields  fields
+		args    args
+		want    int64
+		wantErr bool
+	}{
+		{
+			name: "normal",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+				values: []kv{
+					{
+						key:    []byte("key"),
+						values: [][]byte{[]byte("value1"), []byte("value2")},
+					},
+				},
+			},
+			args: args{
+				key: []byte("key"),
+				values: [][]byte{
+					[]byte("value3"),
+					[]byte("value4"),
+				},
+			},
+			want:    2,
+			wantErr: false,
+		},
+		{
+			name: "empty key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte(""),
+				values: [][]byte{
+					[]byte("value3"),
+					[]byte("value4"),
+				},
+			},
+			wantErr: true,
+		},
+		{
+			name: "empty value",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key:    []byte("key"),
+				values: [][]byte{},
+			},
+			want:    0,
+			wantErr: false,
+		},
+		{
+			name: "not exist key",
+			fields: fields{
+				option: bitcask.DefaultOptions,
+			},
+			args: args{
+				key: []byte("key"),
+			},
+			want: 0,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			d, err := NewDataStructure(tt.fields.option)
+			if err != nil {
+				t.Errorf("NewDataStructure() error = %v", err)
+				return
+			}
+			defer destroyTestData(d, tt.fields.option)
+			for _, value := range tt.fields.values {
+				_, err = d.LPush(value.key, value.values...)
+				if err != nil {
+					t.Errorf("LPush() error = %v", err)
+					return
+				}
+			}
+			got, err := d.RPush(tt.args.key, tt.args.values...)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("RPush() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if got != tt.want {
+				t.Errorf("RPush() got = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
