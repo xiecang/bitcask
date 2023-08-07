@@ -1,8 +1,8 @@
 package bitcask_go
 
 import (
-	"bitcask-go/data"
 	"bytes"
+	"github.com/xiecang/bitcask/data"
 	"os"
 	"path/filepath"
 	"testing"

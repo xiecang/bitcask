@@ -1,8 +1,8 @@
 package index
 
 import (
-	"bitcask-go/data"
 	"fmt"
+	"github.com/xiecang/bitcask/data"
 	"go.etcd.io/bbolt"
 	"path/filepath"
 )

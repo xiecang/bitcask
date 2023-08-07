@@ -1,12 +1,12 @@
 package bitcask_go
 
 import (
-	"bitcask-go/data"
-	"bitcask-go/fio"
-	"bitcask-go/index"
-	"bitcask-go/utils"
 	"errors"
 	"fmt"
+	"github.com/xiecang/bitcask/data"
+	"github.com/xiecang/bitcask/fio"
+	"github.com/xiecang/bitcask/index"
+	"github.com/xiecang/bitcask/utils"
 	"io"
 	"os"
 	"path/filepath"

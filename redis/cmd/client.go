@@ -1,10 +1,10 @@
 package main
 
 import (
-	bitcask "bitcask-go"
-	bitcaskredis "bitcask-go/redis"
 	"errors"
 	"github.com/tidwall/redcon"
+	bitcask "github.com/xiecang/bitcask"
+	bitcaskredis "github.com/xiecang/bitcask/redis"
 	"strings"
 )
 

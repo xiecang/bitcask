@@ -1,4 +1,4 @@
-module bitcask-go
+module github.com/xiecang/bitcask
 
 go 1.20
 

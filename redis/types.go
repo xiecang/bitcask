@@ -1,10 +1,10 @@
 package redis
 
 import (
-	bitcask "bitcask-go"
-	"bitcask-go/utils"
 	"encoding/binary"
 	"errors"
+	bitcask "github.com/xiecang/bitcask"
+	"github.com/xiecang/bitcask/utils"
 	"time"
 )
 

@@ -1,9 +1,9 @@
 package benchmark
 
 import (
-	bitcask "bitcask-go"
-	"bitcask-go/utils"
 	"errors"
+	bitcask "github.com/xiecang/bitcask"
+	"github.com/xiecang/bitcask/utils"
 	"golang.org/x/exp/rand"
 	"testing"
 	"time"

@@ -1,8 +1,8 @@
 package data
 
 import (
-	"bitcask-go/fio"
 	"bytes"
+	"github.com/xiecang/bitcask/fio"
 	"os"
 	"path/filepath"
 	"reflect"

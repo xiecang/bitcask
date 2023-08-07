@@ -1,10 +1,10 @@
 package main
 
 import (
-	bitcask "bitcask-go"
 	"encoding/json"
 	"errors"
 	"fmt"
+	bitcask "github.com/xiecang/bitcask"
 	"log"
 	"net/http"
 	"os"

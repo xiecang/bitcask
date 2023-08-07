@@ -1,9 +1,9 @@
 package bitcask_go
 
 import (
-	"bitcask-go/data"
-	"bitcask-go/utils"
 	"bytes"
+	"github.com/xiecang/bitcask/data"
+	"github.com/xiecang/bitcask/utils"
 	"reflect"
 	"testing"
 )

@@ -1,8 +1,8 @@
 package data
 
 import (
-	"bitcask-go/fio"
 	"fmt"
+	"github.com/xiecang/bitcask/fio"
 	"hash/crc32"
 	"io"
 	"os"

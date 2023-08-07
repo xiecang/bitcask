@@ -1,9 +1,9 @@
 package index
 
 import (
-	"bitcask-go/data"
 	"bytes"
 	"github.com/google/btree"
+	"github.com/xiecang/bitcask/data"
 	"reflect"
 	"sync"
 	"testing"

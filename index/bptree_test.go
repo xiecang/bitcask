@@ -1,9 +1,9 @@
 package index
 
 import (
-	"bitcask-go/data"
 	"bytes"
 	"fmt"
+	"github.com/xiecang/bitcask/data"
 	"os"
 	"reflect"
 	"testing"

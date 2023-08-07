@@ -1,8 +1,8 @@
 package bitcask_go
 
 import (
-	"bitcask-go/index"
 	"bytes"
+	"github.com/xiecang/bitcask/index"
 )
 
 // Iterator 迭代器

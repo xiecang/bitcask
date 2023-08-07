@@ -1,8 +1,8 @@
 package main
 
 import (
-	bitcask "bitcask-go"
 	"fmt"
+	bitcask "github.com/xiecang/bitcask"
 )
 
 func main() {

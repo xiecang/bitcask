@@ -1,8 +1,8 @@
 package redis
 
 import (
-	"bitcask-go/utils"
 	"encoding/binary"
+	"github.com/xiecang/bitcask/utils"
 	"math"
 )
 

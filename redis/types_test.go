@@ -1,9 +1,9 @@
 package redis
 
 import (
-	bitcask "bitcask-go"
 	"bytes"
 	"fmt"
+	bitcask "github.com/xiecang/bitcask"
 	"os"
 	"reflect"
 	"testing"

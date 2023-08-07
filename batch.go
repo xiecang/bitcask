@@ -1,8 +1,8 @@
 package bitcask_go
 
 import (
-	"bitcask-go/data"
 	"encoding/binary"
+	"github.com/xiecang/bitcask/data"
 	"sync"
 	"sync/atomic"
 )

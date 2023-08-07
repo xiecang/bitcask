@@ -1,7 +1,7 @@
 package redis
 
 import (
-	bitcask "bitcask-go"
+	bitcask "github.com/xiecang/bitcask"
 	"testing"
 	"time"
 )
