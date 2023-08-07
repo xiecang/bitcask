@@ -1,6 +1,6 @@
 # Bitcask
 
-This is a key-value (KV) database based on Bitcask implemented in Golang.
+This is a key-value (KV) database based on [Bitcask](https://riak.com/assets/bitcask-intro.pdf) implemented in Golang.
 
 ## Introduction
 
